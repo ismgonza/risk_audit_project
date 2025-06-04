@@ -24,11 +24,6 @@
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Información del Riesgo
                 </h5>
-                {% if can_edit %}
-                <a href="/admin/risks/risk/{{ risk.pk }}/change/" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-edit me-2"></i>Editar
-                </a>
-                {% endif %}
             </div>
             <div class="card-body">
                 <div class="row mb-3">
@@ -279,14 +274,20 @@
                     <a href="{% url 'risk_matrix' %}" class="btn btn-outline-info">
                         <i class="fas fa-th me-2"></i>Ver en Matriz
                     </a>
-                    {% if can_edit %}
-                    <a href="/admin/risks/risk/{{ risk.pk }}/change/" class="btn btn-outline-primary">
-                        <i class="fas fa-edit me-2"></i>Editar Riesgo
-                    </a>
-                    {% endif %}
-                    <a href="{% url 'risk_list' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Volver a Lista
-                    </a>
+
+                    <div class="btn-group">
+                        {% if can_edit %}
+                        <a href="{% url 'risk_edit' risk.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-edit me-2"></i>Editar
+                        </a>
+                        <a href="{% url 'risk_delete' risk.pk %}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-trash me-2"></i>Eliminar
+                        </a>
+                        {% endif %}
+                        <a href="/admin/risks/risk/{{ risk.pk }}/change/" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-cog me-2"></i>Admin
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

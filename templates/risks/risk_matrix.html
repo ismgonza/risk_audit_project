@@ -1,0 +1,451 @@
+{% extends 'base.html' %}
+
+{% block title %}Matriz de Riesgo - Auditoría de Riesgos{% endblock %}
+
+{% block page_title %}Matriz de Riesgo{% endblock %}
+{% block page_subtitle %}Visualización interactiva de riesgos por probabilidad e impacto{% endblock %}
+
+{% block extra_css %}
+<style>
+.risk-matrix {
+    overflow-x: auto;
+}
+
+.matrix-cell {
+    min-height: 120px;
+    border: 2px solid #dee2e6;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 8px;
+}
+
+.matrix-cell:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.matrix-cell.risk-low {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+}
+
+.matrix-cell.risk-medium {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+}
+
+.matrix-cell.risk-high {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+}
+
+.risk-item {
+    background: rgba(255,255,255,0.9);
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin: 2px;
+    font-size: 0.75rem;
+    border-left: 3px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.risk-item:hover {
+    background: rgba(255,255,255,1);
+    transform: scale(1.02);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.risk-item.risk-low { border-left-color: #28a745; }
+.risk-item.risk-medium { border-left-color: #ffc107; }
+.risk-item.risk-high { border-left-color: #dc3545; }
+
+.matrix-header {
+    background: linear-gradient(135deg, #343a40 0%, #495057 100%);
+    color: white;
+    font-weight: bold;
+    padding: 15px;
+    text-align: center;
+}
+
+.probability-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    background: #6c757d;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+}
+
+.cell-score {
+    position: absolute;
+    top: 5px;
+    right: 8px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.legend-color {
+    width: 30px;
+    height: 20px;
+    border-radius: 4px;
+    margin-right: 10px;
+    border: 1px solid #dee2e6;
+}
+
+.risk-tooltip {
+    position: absolute;
+    background: rgba(0,0,0,0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    z-index: 1000;
+    max-width: 300px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.matrix-stats {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+    .risk-matrix {
+        font-size: 0.8rem;
+    }
+    
+    .matrix-cell {
+        min-height: 100px;
+    }
+    
+    .risk-item {
+        font-size: 0.7rem;
+        padding: 4px 6px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Estadísticas de la matriz -->
+<div class="matrix-stats">
+    <div class="row text-center">
+        <div class="col-md-3">
+            <h4 class="text-info mb-1">{{ total_risks }}</h4>
+            <small class="text-muted">Total de Riesgos</small>
+        </div>
+        <div class="col-md-3">
+            <h4 class="text-danger mb-1">{{ high_risks }}</h4>
+            <small class="text-muted">Riesgos Altos</small>
+        </div>
+        <div class="col-md-3">
+            <h4 class="text-warning mb-1">{{ medium_risks }}</h4>
+            <small class="text-muted">Riesgos Medios</small>
+        </div>
+        <div class="col-md-3">
+            <h4 class="text-success mb-1">{{ low_risks }}</h4>
+            <small class="text-muted">Riesgos Bajos</small>
+        </div>
+    </div>
+</div>
+
+<!-- Controles y filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" id="riskFilter" placeholder="Buscar riesgo por código o nombre...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="categoryFilter">
+                    <option value="">Todas las categorías</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-outline-secondary" onclick="clearFilters()">
+                    <i class="fas fa-times me-2"></i>Limpiar filtros
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Matriz de Riesgo -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-th me-2"></i>
+            Matriz de Riesgo Interactiva
+        </h5>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary btn-sm" onclick="exportMatrix()">
+                <i class="fas fa-download me-2"></i>Exportar
+            </button>
+            <a href="{% url 'risk_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-list me-2"></i>Ver Lista
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="risk-matrix">
+            <table class="table table-bordered mb-0">
+                <thead>
+                    <tr>
+                        <th class="matrix-header" style="width: 80px;">
+                            <i class="fas fa-crosshairs"></i><br>
+                            P × I
+                        </th>
+                        {% for impact in impacts %}
+                        <th class="matrix-header">
+                            Impacto {{ impact }}<br>
+                            <small>
+                                {% if impact == 1 %}Muy Bajo
+                                {% elif impact == 2 %}Bajo  
+                                {% elif impact == 3 %}Medio
+                                {% elif impact == 4 %}Alto
+                                {% else %}Muy Alto{% endif %}
+                            </small>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in matrix_cells %}
+                    <tr>
+                        <td class="probability-label">
+                            <div class="text-center">
+                                <strong>Prob. {{ row.0.probability }}</strong><br>
+                                <small>
+                                    {% if row.0.probability == 1 %}Baja
+                                    {% elif row.0.probability == 2 %}Media
+                                    {% else %}Alta{% endif %}
+                                </small>
+                            </div>
+                        </td>
+                        {% for cell in row %}
+                        <td class="matrix-cell {{ cell.risk_class }}"
+                            data-probability="{{ cell.probability }}" 
+                            data-impact="{{ cell.impact }}"
+                            data-score="{{ cell.score }}">
+                            
+                            <div class="cell-score">{{ cell.score }}</div>
+                            
+                            <div class="risks-container">
+                                {% for risk in cell.risks %}
+                                <div class="risk-item risk-{{ risk.inherent_risk_level|lower }}" 
+                                     data-risk-id="{{ risk.id }}"
+                                     data-category="{{ risk.category.id }}"
+                                     onclick="showRiskDetail({{ risk.id }})"
+                                     onmouseover="showTooltip(event, '{{ risk.code }}', '{{ risk.name|escapejs }}', '{{ risk.description|truncatechars:100|escapejs }}', '{{ risk.category.name|escapejs }}')"
+                                     onmouseout="hideTooltip()">
+                                    <div class="fw-bold">{{ risk.code }}</div>
+                                    <div>{{ risk.name|truncatechars:25 }}</div>
+                                    {% if risk.control_set.all %}
+                                    <div class="text-success mt-1">
+                                        <i class="fas fa-shield-alt"></i> {{ risk.control_set.count }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Leyenda -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Leyenda de Niveles
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);"></div>
+                    <div>
+                        <strong>Riesgo Bajo (1-5)</strong><br>
+                        <small class="text-muted">Aceptable, monitoreo rutinario</small>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);"></div>
+                    <div>
+                        <strong>Riesgo Medio (6-10)</strong><br>
+                        <small class="text-muted">Requiere atención, implementar controles</small>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);"></div>
+                    <div>
+                        <strong>Riesgo Alto (11-15)</strong><br>
+                        <small class="text-muted">Acción inmediata, controles críticos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Cómo usar la matriz
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-mouse-pointer text-primary me-2"></i>
+                        <strong>Haz clic</strong> en un riesgo para ver detalles
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-search text-info me-2"></i>
+                        <strong>Filtra</strong> por categoría o busca por texto
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-shield-alt text-success me-2"></i>
+                        <strong>Escudo verde</strong> indica riesgos con controles
+                    </li>
+                    <li class="mb-0">
+                        <i class="fas fa-download text-secondary me-2"></i>
+                        <strong>Exporta</strong> la matriz para reportes
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tooltip para detalles del riesgo -->
+<div id="riskTooltip" class="risk-tooltip" style="display: none;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    updateRiskCounts();
+    
+    // Filtro de búsqueda
+    document.getElementById('riskFilter').addEventListener('input', function() {
+        filterRisks();
+    });
+    
+    // Filtro de categoría
+    document.getElementById('categoryFilter').addEventListener('change', function() {
+        filterRisks();
+    });
+});
+
+function updateRiskCounts() {
+    let highCount = 0, mediumCount = 0, lowCount = 0;
+    
+    document.querySelectorAll('.risk-item:not([style*="display: none"])').forEach(function(item) {
+        if (item.classList.contains('risk-high')) {
+            highCount++;
+        } else if (item.classList.contains('risk-medium')) {
+            mediumCount++;
+        } else if (item.classList.contains('risk-low')) {
+            lowCount++;
+        }
+    });
+    
+    // Actualizar contadores si existen
+    const highEl = document.querySelector('.matrix-stats .text-danger');
+    const mediumEl = document.querySelector('.matrix-stats .text-warning');
+    const lowEl = document.querySelector('.matrix-stats .text-success');
+    
+    if (highEl) highEl.textContent = highCount;
+    if (mediumEl) mediumEl.textContent = mediumCount;
+    if (lowEl) lowEl.textContent = lowCount;
+}
+
+function filterRisks() {
+    const searchText = document.getElementById('riskFilter').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    
+    document.querySelectorAll('.risk-item').forEach(function(item) {
+        const riskText = item.textContent.toLowerCase();
+        const riskCategory = item.dataset.category;
+        
+        const matchesSearch = !searchText || riskText.includes(searchText);
+        const matchesCategory = !categoryFilter || riskCategory === categoryFilter;
+        
+        if (matchesSearch && matchesCategory) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    updateRiskCounts();
+}
+
+function clearFilters() {
+    document.getElementById('riskFilter').value = '';
+    document.getElementById('categoryFilter').value = '';
+    
+    document.querySelectorAll('.risk-item').forEach(function(item) {
+        item.style.display = 'block';
+    });
+    
+    updateRiskCounts();
+}
+
+function showRiskDetail(riskId) {
+    window.location.href = `/risks/${riskId}/`;
+}
+
+function showTooltip(event, code, name, description, category) {
+    const tooltip = document.getElementById('riskTooltip');
+    tooltip.innerHTML = `
+        <div class="fw-bold">${code} - ${name}</div>
+        <div class="mt-1">${description}</div>
+        <div class="mt-2 small">
+            <i class="fas fa-tag me-1"></i>Categoría: ${category}
+        </div>
+    `;
+    
+    tooltip.style.display = 'block';
+    tooltip.style.left = (event.pageX + 10) + 'px';
+    tooltip.style.top = (event.pageY - 10) + 'px';
+}
+
+function hideTooltip() {
+    document.getElementById('riskTooltip').style.display = 'none';
+}
+
+function exportMatrix() {
+    // Implementar exportación (PDF, Excel, etc.)
+    alert('Funcionalidad de exportación en desarrollo');
+}
+</script>
+{% endblock %}

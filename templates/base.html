@@ -74,24 +74,29 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if 'risk' in request.resolver_match.url_name %}active{% endif %}" 
+                            <a class="nav-link {% if 'risk' in request.resolver_match.url_name and 'matrix' not in request.resolver_match.url_name %}active{% endif %}" 
                                href="{% url 'risk_list' %}">
                                 <i class="fas fa-exclamation-triangle me-2"></i>Riesgos
+                                <span class="badge bg-primary ms-auto" id="risks-count">-</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'risk_matrix' %}">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'risk_matrix' %}active{% endif %}" 
+                               href="{% url 'risk_matrix' %}">
                                 <i class="fas fa-th me-2"></i>Matriz de Riesgo
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/controls/">
+                            <a class="nav-link {% if 'controls' in request.resolver_match.namespace and 'auditor' not in request.resolver_match.url_name %}active{% endif %}" 
+                               href="{% url 'controls:control_list' %}">
                                 <i class="fas fa-cogs me-2"></i>Controles
+                                <span class="badge bg-info ms-auto" id="controls-count">-</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="/audit/">
                                 <i class="fas fa-clipboard-check me-2"></i>Auditorías
+                                <span class="badge bg-secondary ms-auto">Soon</span>
                             </a>
                         </li>
                         
@@ -99,18 +104,38 @@
                         
                         {% if user.is_staff %}
                         <li class="nav-item">
+                            <a class="nav-link {% if 'auditor' in request.resolver_match.url_name %}active{% endif %}" 
+                               href="{% url 'controls:auditor_dashboard' %}">
+                                <i class="fas fa-gavel me-2"></i>Dashboard Auditor
+                                <span class="badge bg-warning ms-auto" id="pending-count">-</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="/admin/">
                                 <i class="fas fa-user-shield me-2"></i>Admin
                             </a>
                         </li>
                         {% endif %}
                         
-                        <li class="nav-item">
-                            <a class="nav-link" href="/admin/logout/">
+                        <li class="nav-item mt-2">
+                            <a class="nav-link text-muted" href="/admin/logout/">
                                 <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                             </a>
                         </li>
                     </ul>
+                    
+                    <!-- Status del sistema -->
+                    <div class="mt-4 p-2 bg-dark bg-opacity-50 rounded">
+                        <small class="text-white-50">
+                            <i class="fas fa-user me-1"></i>
+                            {{ user.get_full_name|default:user.username }}
+                        </small>
+                        <br>
+                        <small class="text-white-50">
+                            <i class="fas fa-clock me-1"></i>
+                            <span id="current-time"></span>
+                        </small>
+                    </div>
                 </div>
             </nav>
 
@@ -149,6 +174,100 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Script para navegación -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Actualizar reloj
+            function updateTime() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('es-CR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const timeElement = document.getElementById('current-time');
+                if (timeElement) {
+                    timeElement.textContent = timeString;
+                }
+            }
+            
+            updateTime();
+            setInterval(updateTime, 60000); // Actualizar cada minuto
+            
+            // Cargar estadísticas para badges
+            loadSidebarStats();
+            
+            // Actualizar badges cada 5 minutos
+            setInterval(loadSidebarStats, 300000);
+        });
+        
+        function loadSidebarStats() {
+            // Simular carga de estadísticas (en producción sería una API call)
+            fetch('/api/sidebar-stats/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // Si no hay API, usar valores por defecto
+                    updateBadges({
+                        risks_count: '{{ total_risks|default:"8" }}',
+                        controls_count: '{{ stats.total|default:"16" }}',
+                        pending_count: '{{ stats.pending|default:"3" }}'
+                    });
+                    return;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data) {
+                    updateBadges(data);
+                }
+            })
+            .catch(error => {
+                // Valores por defecto si falla la conexión
+                updateBadges({
+                    risks_count: '{{ total_risks|default:"?" }}',
+                    controls_count: '{{ stats.total|default:"?" }}',
+                    pending_count: '{{ stats.pending|default:"?" }}'
+                });
+            });
+        }
+        
+        function updateBadges(data) {
+            const risksElement = document.getElementById('risks-count');
+            const controlsElement = document.getElementById('controls-count');
+            const pendingElement = document.getElementById('pending-count');
+            
+            if (risksElement) risksElement.textContent = data.risks_count || '?';
+            if (controlsElement) controlsElement.textContent = data.controls_count || '?';
+            if (pendingElement) {
+                pendingElement.textContent = data.pending_count || '?';
+                
+                // Cambiar color del badge según cantidad pendiente
+                const count = parseInt(data.pending_count) || 0;
+                pendingElement.className = count > 5 ? 'badge bg-danger ms-auto' : 
+                                          count > 0 ? 'badge bg-warning ms-auto' : 
+                                          'badge bg-success ms-auto';
+            }
+        }
+        
+        // Efecto hover mejorado para los nav-links
+        document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+            link.addEventListener('mouseenter', function() {
+                if (!this.classList.contains('active')) {
+                    this.style.transform = 'translateX(5px)';
+                    this.style.transition = 'transform 0.2s ease';
+                }
+            });
+            
+            link.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateX(0)';
+            });
+        });
+    </script>
     
     {% block extra_js %}{% endblock %}
 </body>

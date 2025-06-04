@@ -18,6 +18,7 @@ class Control(models.Model):
         ('APPROVED', 'Aprobado'),
         ('REJECTED', 'Rechazado'),
         ('NEEDS_REVISION', 'Necesita Revisión'),
+        ('PENDING_REVALUATION', 'Pendiente de Re-evaluación'),
     ]
     
     FREQUENCY_CHOICES = [
@@ -111,6 +112,8 @@ class Control(models.Model):
             'APPROVED': 'success',
             'REJECTED': 'danger',
             'NEEDS_REVISION': 'info',
+            'PENDING_REVALUATION': 'secondary',
+            
         }
         return colors.get(self.auditor_approval, 'secondary')
     

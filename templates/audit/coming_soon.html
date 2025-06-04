@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Auditorías - Próximamente{% endblock %}
+
+{% block page_title %}Módulo de Auditorías{% endblock %}
+{% block page_subtitle %}Esta funcionalidad estará disponible próximamente{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <div class="mb-4">
+        <i class="fas fa-clipboard-check fa-6x text-muted mb-4"></i>
+    </div>
+    
+    <h2 class="text-muted mb-4">Módulo de Auditorías</h2>
+    <p class="lead text-muted mb-4">
+        Estamos trabajando en el módulo completo de gestión de auditorías.
+    </p>
+    
+    <!-- Funcionalidades previstas -->
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-rocket me-2"></i>
+                        Funcionalidades Planificadas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-project-diagram text-primary me-3"></i>
+                                <div>
+                                    <strong>Proyectos de Auditoría</strong>
+                                    <br><small class="text-muted">Gestión completa de proyectos</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-users text-success me-3"></i>
+                                <div>
+                                    <strong>Equipos de Trabajo</strong>
+                                    <br><small class="text-muted">Asignación de auditores y roles</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-calendar-alt text-info me-3"></i>
+                                <div>
+                                    <strong>Cronogramas</strong>
+                                    <br><small class="text-muted">Planificación temporal detallada</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-chart-bar text-warning me-3"></i>
+                                <div>
+                                    <strong>Reportes Avanzados</strong>
+                                    <br><small class="text-muted">Generación automática de reportes</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-file-pdf text-danger me-3"></i>
+                                <div>
+                                    <strong>Exportación</strong>
+                                    <br><small class="text-muted">PDF, Excel y otros formatos</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-bell text-secondary me-3"></i>
+                                <div>
+                                    <strong>Notificaciones</strong>
+                                    <br><small class="text-muted">Alertas y recordatorios automáticos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estado actual -->
+    {% if total_projects is not None %}
+    <div class="row justify-content-center mt-4">
+        <div class="col-md-6">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">Estado Actual del Sistema</h6>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h4 class="text-info">{{ total_projects }}</h4>
+                            <small class="text-muted">Proyectos<br>Registrados</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-success">{{ active_projects }}</h4>
+                            <small class="text-muted">Proyectos<br>Activos</small>
+                        </div>
+                        <div class="col-4">
+                            <h4 class="text-primary">{{ completed_projects }}</h4>
+                            <small class="text-muted">Proyectos<br>Completados</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Navegación -->
+    <div class="mt-5">
+        <a href="{% url 'dashboard' %}" class="btn btn-primary me-3">
+            <i class="fas fa-arrow-left me-2"></i>Volver al Dashboard
+        </a>
+        <a href="{% url 'controls:control_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-cogs me-2"></i>Ir a Controles
+        </a>
+    </div>
+    
+    <!-- Información adicional -->
+    <div class="mt-5">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>Nota:</strong> Mientras tanto, puedes usar la funcionalidad completa de 
+            <a href="{% url 'risk_list' %}" class="alert-link">gestión de riesgos</a> y 
+            <a href="{% url 'controls:control_list' %}" class="alert-link">controles</a> 
+            que ya están disponibles.
+        </div>
+    </div>
+</div>
+
+<!-- Animación sutil -->
+<style>
+.fa-clipboard-check {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.card {
+    transition: transform 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

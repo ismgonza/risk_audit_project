@@ -1,0 +1,668 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ control.name }} - Controles{% endblock %}
+
+{% block page_title %}{{ control.name }}{% endblock %}
+{% block page_subtitle %}Control para riesgo {{ control.risk.code }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'controls:control_list' %}">Controles</a></li>
+        <li class="breadcrumb-item active">{{ control.name|truncatechars:30 }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <!-- Información principal del control -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Información del Control
+                </h5>
+                <div class="btn-group">
+                    {% if can_approve %}
+                    <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#approvalModal">
+                        <i class="fas fa-gavel me-2"></i>Revisar
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Riesgo Asociado:</strong>
+                        <br>
+                        <a href="{% url 'risk_detail' control.risk.pk %}" class="text-decoration-none">
+                            <code>{{ control.risk.code }}</code> - {{ control.risk.name }}
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Estado de Aprobación:</strong>
+                        <br>
+                        <span class="badge badge-large bg-{{ control.get_approval_color }}">
+                            {{ control.get_auditor_approval_display }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Descripción:</strong>
+                    <p class="mt-2 text-muted">{{ control.description }}</p>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Tipo de Control:</strong>
+                        <br>
+                        <span class="badge bg-info">{{ control.get_control_type_display }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Frecuencia:</strong>
+                        <br>
+                        <span class="badge bg-secondary">{{ control.get_frequency_display }}</span>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Responsable:</strong>
+                        <br>
+                        <span class="ms-2">{{ control.responsible_person }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Estado:</strong>
+                        <br>
+                        {% if control.is_active %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Creado por:</strong>
+                        <br>
+                        <span class="ms-2">{{ control.created_by.get_full_name|default:control.created_by.username }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Fecha de creación:</strong>
+                        <br>
+                        <span class="ms-2">{{ control.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                </div>
+                
+                {% if control.auditor_feedback %}
+                <div class="mb-3">
+                    <strong>Comentarios del Auditor:</strong>
+                    <div class="alert alert-info mt-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <i class="fas fa-comment me-2"></i>
+                                {% with feedback_lines=control.auditor_feedback|linebreaks %}
+                                    {% if feedback_lines|length > 200 %}
+                                        {{ feedback_lines|truncatechars:200 }}
+                                        <button class="btn btn-link btn-sm p-0 ms-2" data-bs-toggle="modal" data-bs-target="#commentsModal">
+                                            <small>Ver historial completo</small>
+                                        </button>
+                                    {% else %}
+                                        {{ feedback_lines }}
+                                    {% endif %}
+                                {% endwith %}
+                                {% if control.auditor %}
+                                <br><small class="text-muted">- {{ control.auditor.get_full_name|default:control.auditor.username }}</small>
+                                {% endif %}
+                            </div>
+                            <button class="btn btn-outline-info btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#commentsModal">
+                                <i class="fas fa-history"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Evidencias del control -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-paperclip me-2"></i>
+                    Evidencias ({{ evidences|length }})
+                </h5>
+                {% if can_add_evidence %}
+                <a href="{% url 'controls:evidence_create' control.pk %}" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus me-2"></i>Nueva Evidencia
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if evidences %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Descripción</th>
+                                <th>Efectividad</th>
+                                <th>Estado</th>
+                                <th>Subido por</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for evidence in evidences %}
+                            <tr>
+                                <td>
+                                    <strong>{{ evidence.evidence_date|date:"d/m/Y" }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ evidence.evidence_date|time:"H:i" }}</small>
+                                </td>
+                                <td>
+                                    <div>{{ evidence.description|truncatechars:80 }}</div>
+                                    {% if evidence.document %}
+                                    <a href="{{ evidence.document.url }}" target="_blank" class="small text-primary">
+                                        <i class="fas fa-paperclip me-1"></i>Ver documento
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if evidence.effectiveness_percentage >= 90 %}success{% elif evidence.effectiveness_percentage >= 70 %}info{% elif evidence.effectiveness_percentage >= 40 %}warning{% else %}danger{% endif %}">
+                                        {{ evidence.get_effectiveness_display_short }}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">{{ evidence.effectiveness_percentage }}%</small>
+                                </td>
+                                <td>
+                                    {% if evidence.is_validated %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i>Validado
+                                        </span>
+                                        {% if evidence.validated_by %}
+                                        <br><small class="text-muted">por {{ evidence.validated_by.get_full_name|default:evidence.validated_by.username }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-clock me-1"></i>Pendiente
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ evidence.uploaded_by.get_full_name|default:evidence.uploaded_by.username }}
+                                    <br>
+                                    <small class="text-muted">{{ evidence.uploaded_at|date:"d/m/Y" }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        {% if user.is_staff and not evidence.is_validated %}
+                                        <button class="btn btn-outline-success" onclick="validateEvidence({{ evidence.pk }}, 'validate')">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="validateEvidence({{ evidence.pk }}, 'reject')">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if evidence.auditor_review %}
+                                        <button class="btn btn-outline-info" onclick="showReview('{{ evidence.auditor_review|escapejs }}')">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if effectiveness_chart_data %}
+                <!-- Gráfico de efectividad -->
+                <div class="mt-4">
+                    <h6>Tendencia de Efectividad</h6>
+                    <canvas id="effectivenessChart" height="100"></canvas>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-paperclip fa-3x text-muted mb-3"></i>
+                    <h6 class="text-muted">No hay evidencias registradas</h6>
+                    <p class="text-muted mb-3">Las evidencias demuestran que el control está funcionando</p>
+                    {% if can_add_evidence %}
+                    <a href="{% url 'controls:evidence_create' control.pk %}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Agregar Primera Evidencia
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel lateral con métricas -->
+    <div class="col-md-4">
+        <!-- Efectividad del control -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Efectividad del Control
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                {% with effectiveness=control.get_overall_effectiveness_percentage %}
+                <div class="mb-3">
+                    <div class="progress mx-auto" style="width: 120px; height: 120px; border-radius: 50%; position: relative; background: conic-gradient(
+                        {% if effectiveness >= 90 %}#28a745{% elif effectiveness >= 70 %}#17a2b8{% elif effectiveness >= 40 %}#ffc107{% else %}#dc3545{% endif %} {{ effectiveness }}%, 
+                        #e9ecef {{ effectiveness }}%);">
+                        <div class="position-absolute top-50 start-50 translate-middle">
+                            <h3 class="text-{% if effectiveness >= 90 %}success{% elif effectiveness >= 70 %}info{% elif effectiveness >= 40 %}warning{% else %}danger{% endif %}">
+                                {{ effectiveness }}%
+                            </h3>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if effectiveness > 0 %}
+                <div class="row text-center">
+                    <div class="col-12">
+                        <span class="badge badge-large bg-{% if effectiveness >= 90 %}success{% elif effectiveness >= 70 %}info{% elif effectiveness >= 40 %}warning{% else %}danger{% endif %}">
+                            {% if effectiveness >= 90 %}Altamente Efectivo
+                            {% elif effectiveness >= 70 %}Moderadamente Efectivo
+                            {% elif effectiveness >= 40 %}Parcialmente Efectivo
+                            {% else %}Poco Efectivo{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted">Sin evidencias para calcular efectividad</p>
+                {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+        
+        <!-- Información del riesgo asociado -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Riesgo Asociado
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6 class="text-primary">{{ control.risk.code }} - {{ control.risk.name }}</h6>
+                <p class="text-muted small">{{ control.risk.description|truncatechars:100 }}</p>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold text-{{ control.risk.get_risk_color }}">{{ control.risk.inherent_risk_score }}</div>
+                            <small class="text-muted">Inherente</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            {% if control.risk.residual_risk_score %}
+                            <div class="fw-bold text-{% if control.risk.residual_risk_level == 'HIGH' %}danger{% elif control.risk.residual_risk_level == 'MEDIUM' %}warning{% else %}success{% endif %}">
+                                {{ control.risk.residual_risk_score|floatformat:1 }}
+                            </div>
+                            <small class="text-muted">Residual</small>
+                            {% else %}
+                            <div class="fw-bold text-muted">N/A</div>
+                            <small class="text-muted">Sin controles</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid">
+                    <a href="{% url 'risk_detail' control.risk.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-2"></i>Ver Riesgo Completo
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estadísticas de evidencias -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Estadísticas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h5 class="text-info">{{ evidences|length }}</h5>
+                        <small class="text-muted">Total Evidencias</small>
+                    </div>
+                    <div class="col-6">
+                        <h5 class="text-success">{{ evidences|dictsort:"is_validated"|length }}</h5>
+                        <small class="text-muted">Validadas</small>
+                    </div>
+                </div>
+                
+                {% with latest_evidence=control.get_latest_evidence %}
+                {% if latest_evidence %}
+                <hr>
+                <div>
+                    <strong>Última evidencia:</strong>
+                    <br>
+                    <small class="text-muted">{{ latest_evidence.evidence_date|date:"d/m/Y" }}</small>
+                    <br>
+                    <span class="badge bg-{% if latest_evidence.effectiveness_percentage >= 90 %}success{% elif latest_evidence.effectiveness_percentage >= 70 %}info{% elif latest_evidence.effectiveness_percentage >= 40 %}warning{% else %}danger{% endif %}">
+                        {{ latest_evidence.effectiveness_percentage }}%
+                    </span>
+                </div>
+                {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+        
+        <!-- Acciones rápidas -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Acciones Rápidas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if can_add_evidence %}
+                    <a href="{% url 'controls:evidence_create' control.pk %}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Nueva Evidencia
+                    </a>
+                    {% endif %}
+                    
+                    {% if control.auditor_approval == 'NEEDS_REVISION' %}
+                    <a href="{% url 'controls:control_request_revaluation' control.pk %}" class="btn btn-primary">
+                        <i class="fas fa-redo me-2"></i>Solicitar Re-evaluación
+                    </a>
+                    <div class="alert alert-info p-2 mt-2 mb-0">
+                        <small><i class="fas fa-info-circle me-1"></i>Este control necesita revisión según el auditor</small>
+                    </div>
+                    {% endif %}
+                    
+                    {% if can_edit %}
+                    <a href="{% url 'controls:control_edit' control.pk %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-2"></i>Editar Control
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'risk_detail' control.risk.pk %}" class="btn btn-outline-info">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Ver Riesgo
+                    </a>
+                    <a href="{% url 'controls:control_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Volver a Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de aprobación -->
+{% if can_approve %}
+<div class="modal fade" id="approvalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Revisar Control</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'controls:control_approve' control.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Decisión</label>
+                        <div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="action" value="APPROVED" id="approve">
+                                <label class="form-check-label text-success" for="approve">
+                                    <i class="fas fa-check-circle me-2"></i>Aprobar Control
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="action" value="NEEDS_REVISION" id="revision">
+                                <label class="form-check-label text-warning" for="revision">
+                                    <i class="fas fa-edit me-2"></i>Necesita Revisión
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="action" value="REJECTED" id="reject">
+                                <label class="form-check-label text-danger" for="reject">
+                                    <i class="fas fa-times-circle me-2"></i>Rechazar Control
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="feedback" class="form-label">Comentarios</label>
+                        <textarea class="form-control" id="feedback" name="feedback" rows="4" placeholder="Comentarios para el creador del control..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar Revisión</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal de historial de comentarios -->
+{% if control.auditor_feedback %}
+<div class="modal fade" id="commentsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-history me-2"></i>
+                    Historial de Comentarios - {{ control.name|truncatechars:30 }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="timeline">
+                    {% with feedback_sections=control.auditor_feedback|split:"--- " %}
+                        {% for section in feedback_sections %}
+                            {% if section|length > 5 %}
+                            <div class="timeline-item mb-4">
+                                {% if "Comentarios del usuario" in section %}
+                                    <div class="d-flex">
+                                        <div class="flex-shrink-0">
+                                            <div class="timeline-icon bg-primary">
+                                                <i class="fas fa-user text-white"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <div class="card border-primary">
+                                                <div class="card-header bg-primary text-white py-2">
+                                                    <h6 class="mb-0">
+                                                        <i class="fas fa-user me-2"></i>Comentarios del Usuario
+                                                        {% if "(" in section %}
+                                                            <small class="ms-2">{{ section|extract_date }}</small>
+                                                        {% endif %}
+                                                    </h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <p class="mb-0">{{ section|extract_user_comment|linebreaks }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="d-flex">
+                                        <div class="flex-shrink-0">
+                                            <div class="timeline-icon bg-warning">
+                                                <i class="fas fa-gavel text-white"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <div class="card border-warning">
+                                                <div class="card-header bg-warning text-dark py-2">
+                                                    <h6 class="mb-0">
+                                                        <i class="fas fa-gavel me-2"></i>Comentarios del Auditor
+                                                        {% if control.auditor %}
+                                                            <small class="ms-2">- {{ control.auditor.get_full_name|default:control.auditor.username }}</small>
+                                                        {% endif %}
+                                                    </h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <p class="mb-0">{{ section|linebreaks }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endwith %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline {
+    position: relative;
+}
+
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 18px;
+    top: 60px;
+    bottom: -30px;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 2;
+}
+
+.badge-large {
+    font-size: 1em;
+    padding: 8px 12px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function validateEvidence(evidenceId, action) {
+    const review = prompt(action === 'validate' ? 'Comentarios de validación (opcional):' : 'Razón del rechazo:');
+    
+    if (action === 'reject' && !review) {
+        alert('Debes proporcionar una razón para rechazar la evidencia');
+        return;
+    }
+    
+    // Crear form dinámico
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/controls/evidence/${evidenceId}/validate/`;
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = action;
+    
+    const reviewInput = document.createElement('input');
+    reviewInput.type = 'hidden';
+    reviewInput.name = 'review';
+    reviewInput.value = review || '';
+    
+    form.appendChild(csrfInput);
+    form.appendChild(actionInput);
+    form.appendChild(reviewInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function showReview(review) {
+    alert('Revisión del auditor:\n\n' + review);
+}
+
+{% if effectiveness_chart_data %}
+// Gráfico de efectividad
+const ctx = document.getElementById('effectivenessChart').getContext('2d');
+const chartData = {{ effectiveness_chart_data|safe }};
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: chartData.map(item => item.date),
+        datasets: [{
+            label: 'Efectividad (%)',
+            data: chartData.map(item => item.effectiveness),
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            fill: true,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                    callback: function(value) {
+                        return value + '%';
+                    }
+                }
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    afterLabel: function(context) {
+                        const item = chartData[context.dataIndex];
+                        return item.description;
+                    }
+                }
+            }
+        }
+    }
+});
+{% endif %}
+</script>
+
+<!-- Chart.js CDN -->
+{% if effectiveness_chart_data %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endif %}
+{% endblock %}

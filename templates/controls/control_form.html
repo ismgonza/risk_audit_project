@@ -1,0 +1,353 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}Editar{% else %}Crear{% endif %} Control - Controles{% endblock %}
+
+{% block page_title %}{% if is_edit %}Editar Control{% else %}Nuevo Control{% endif %}{% endblock %}
+{% block page_subtitle %}{% if is_edit %}Modificar control existente{% else %}Crear control para mitigar riesgos{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'controls:control_list' %}">Controles</a></li>
+        {% if is_edit %}
+        <li class="breadcrumb-item"><a href="{% url 'controls:control_detail' control.pk %}">{{ control.name|truncatechars:20 }}</a></li>
+        <li class="breadcrumb-item active">Editar</li>
+        {% else %}
+        <li class="breadcrumb-item active">Nuevo</li>
+        {% endif %}
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-{% if is_edit %}edit{% else %}plus{% endif %} me-2"></i>
+                    {% if is_edit %}Editar Control{% else %}Crear Nuevo Control{% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    <!-- Información del riesgo (si viene predefinido) -->
+                    {% if risk %}
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>Control para el riesgo:</h6>
+                        <strong>{{ risk.code }} - {{ risk.name }}</strong>
+                        <p class="mb-0 mt-2">{{ risk.description|truncatechars:150 }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row">
+                        <!-- Riesgo asociado -->
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.risk.id_for_label }}" class="form-label">
+                                {{ form.risk.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.risk }}
+                            {% if form.risk.help_text %}
+                            <div class="form-text">{{ form.risk.help_text }}</div>
+                            {% endif %}
+                            {% if form.risk.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.risk.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Nombre del control -->
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">
+                                {{ form.name.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.name }}
+                            {% if form.name.help_text %}
+                            <div class="form-text">{{ form.name.help_text }}</div>
+                            {% endif %}
+                            {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.name.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Descripción -->
+                        <div class="col-12 mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                {{ form.description.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.help_text %}
+                            <div class="form-text">{{ form.description.help_text }}</div>
+                            {% endif %}
+                            {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.description.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Tipo y frecuencia -->
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.control_type.id_for_label }}" class="form-label">
+                                {{ form.control_type.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.control_type }}
+                            {% if form.control_type.help_text %}
+                            <div class="form-text">{{ form.control_type.help_text }}</div>
+                            {% endif %}
+                            {% if form.control_type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.control_type.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.frequency.id_for_label }}" class="form-label">
+                                {{ form.frequency.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.frequency }}
+                            {% if form.frequency.help_text %}
+                            <div class="form-text">{{ form.frequency.help_text }}</div>
+                            {% endif %}
+                            {% if form.frequency.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.frequency.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Responsable -->
+                        <div class="col-md-8 mb-3">
+                            <label for="{{ form.responsible_person.id_for_label }}" class="form-label">
+                                {{ form.responsible_person.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.responsible_person }}
+                            {% if form.responsible_person.help_text %}
+                            <div class="form-text">{{ form.responsible_person.help_text }}</div>
+                            {% endif %}
+                            {% if form.responsible_person.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.responsible_person.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Estado activo -->
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="form-check mt-2">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    {{ form.is_active.label }}
+                                </label>
+                            </div>
+                            {% if form.is_active.help_text %}
+                            <div class="form-text">{{ form.is_active.help_text }}</div>
+                            {% endif %}
+                            {% if form.is_active.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.is_active.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Información adicional sobre tipos de control -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Guía de Tipos de Control
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-2">
+                                        <span class="badge bg-success me-2">Preventivo</span>
+                                        <small>Evita que ocurra el riesgo</small>
+                                    </div>
+                                    <small class="text-muted">Ejemplo: Políticas, autorizaciones, segregación de funciones</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-2">
+                                        <span class="badge bg-info me-2">Detectivo</span>
+                                        <small>Identifica cuando el riesgo ocurre</small>
+                                    </div>
+                                    <small class="text-muted">Ejemplo: Monitoreo, revisiones, conciliaciones</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-2">
+                                        <span class="badge bg-warning me-2">Correctivo</span>
+                                        <small>Mitiga el impacto después de que ocurra</small>
+                                    </div>
+                                    <small class="text-muted">Ejemplo: Planes de contingencia, respaldos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones de acción -->
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            {% if is_edit %}
+                            <a href="{% url 'controls:control_detail' control.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Cancelar
+                            </a>
+                            {% else %}
+                            <a href="{% url 'controls:control_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Cancelar
+                            </a>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-2"></i>
+                                {% if is_edit %}Actualizar Control{% else %}Crear Control{% endif %}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Información adicional para nuevos usuarios -->
+        {% if not is_edit %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Consejos para crear controles efectivos
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Nombre del Control</h6>
+                        <ul class="small">
+                            <li>Sea específico y descriptivo</li>
+                            <li>Use verbos de acción (revisar, aprobar, verificar)</li>
+                            <li>Indique qué se está controlando</li>
+                        </ul>
+                        
+                        <h6 class="text-primary mt-3">Descripción</h6>
+                        <ul class="small">
+                            <li>Explique el procedimiento paso a paso</li>
+                            <li>Mencione herramientas o sistemas utilizados</li>
+                            <li>Defina criterios de éxito</li>
+                            <li>Incluya frecuencia y responsabilidades</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Responsable</h6>
+                        <ul class="small">
+                            <li>Especifique cargo o área, no solo nombre</li>
+                            <li>Asegúrese de que tenga autoridad necesaria</li>
+                            <li>Considere responsables alternos</li>
+                        </ul>
+                        
+                        <h6 class="text-primary mt-3">Frecuencia</h6>
+                        <ul class="small">
+                            <li>Alinee con la velocidad del riesgo</li>
+                            <li>Considere el costo vs beneficio</li>
+                            <li>Permita detección oportuna</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3 mb-0">
+                    <small>
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Recuerda:</strong> Después de crear el control, podrás agregar evidencias para demostrar su efectividad.
+                        Los controles deben ser aprobados por un auditor antes de que reduzcan el riesgo residual.
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-completar campos basado en el riesgo seleccionado
+    const riskSelect = document.getElementById('{{ form.risk.id_for_label }}');
+    const nameInput = document.getElementById('{{ form.name.id_for_label }}');
+    
+    if (riskSelect && nameInput && !nameInput.value) {
+        riskSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                // Sugerir nombre basado en el código del riesgo
+                const riskCode = selectedOption.text.split(' -')[0];
+                if (riskCode && !nameInput.value) {
+                    nameInput.placeholder = `Control para ${riskCode}`;
+                }
+            }
+        });
+    }
+    
+    // Validación del formulario
+    const form = document.querySelector('form');
+    const requiredFields = form.querySelectorAll('input[required], select[required], textarea[required]');
+    
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        
+        requiredFields.forEach(function(field) {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('Por favor, complete todos los campos obligatorios marcados con *');
+        }
+    });
+    
+    // Remover estilos de error al escribir
+    requiredFields.forEach(function(field) {
+        field.addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+    
+    // Contador de caracteres para descripción
+    const descriptionField = document.getElementById('{{ form.description.id_for_label }}');
+    if (descriptionField) {
+        const maxLength = 1000;
+        const counter = document.createElement('div');
+        counter.className = 'form-text text-end';
+        counter.id = 'description-counter';
+        descriptionField.parentNode.appendChild(counter);
+        
+        function updateCounter() {
+            const length = descriptionField.value.length;
+            counter.textContent = `${length}/${maxLength} caracteres`;
+            counter.className = length > maxLength * 0.9 ? 'form-text text-end text-warning' : 'form-text text-end';
+        }
+        
+        descriptionField.addEventListener('input', updateCounter);
+        updateCounter();
+    }
+});
+</script>
+{% endblock %}

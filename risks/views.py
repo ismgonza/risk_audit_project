@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db.models import Q, Count
 from django.http import JsonResponse
 from .models import Risk, RiskCategory
+from .forms import RiskForm
 from controls.models import Control
 
 @login_required
@@ -118,18 +119,172 @@ def risk_matrix(request):
     
     # Organizar riesgos por probabilidad e impacto
     matrix_data = {}
-    for prob in range(1, 4):
+    for prob in range(1, 4):  # Probabilidad 1-3
         matrix_data[prob] = {}
-        for imp in range(1, 6):
+        for imp in range(1, 6):  # Impacto 1-5
             matrix_data[prob][imp] = []
     
+    # Llenar la matriz con los riesgos
     for risk in risks:
         matrix_data[risk.probability][risk.impact].append(risk)
     
+    # Convertir a una estructura más fácil para el template
+    matrix_cells = []
+    for prob in range(3, 0, -1):  # De mayor a menor probabilidad
+        row = []
+        for imp in range(1, 6):  # De menor a mayor impacto
+            cell_risks = matrix_data[prob][imp]
+            score = prob * imp
+            
+            # Determinar clase de riesgo
+            if score <= 5:
+                risk_class = 'risk-low'
+            elif score <= 10:
+                risk_class = 'risk-medium'
+            else:
+                risk_class = 'risk-high'
+            
+            row.append({
+                'probability': prob,
+                'impact': imp,
+                'score': score,
+                'risk_class': risk_class,
+                'risks': cell_risks
+            })
+        matrix_cells.append(row)
+    
+    # Estadísticas para mostrar
+    total_risks = risks.count()
+    high_risks = risks.filter(inherent_risk_level='HIGH').count()
+    medium_risks = risks.filter(inherent_risk_level='MEDIUM').count()
+    low_risks = risks.filter(inherent_risk_level='LOW').count()
+    
+    # Obtener todas las categorías para el filtro
+    categories = RiskCategory.objects.all()
+    
     context = {
-        'matrix_data': matrix_data,
+        'matrix_cells': matrix_cells,
         'probabilities': range(1, 4),
         'impacts': range(1, 6),
+        'total_risks': total_risks,
+        'high_risks': high_risks,
+        'medium_risks': medium_risks,
+        'low_risks': low_risks,
+        'categories': categories,
     }
     
     return render(request, 'risks/risk_matrix.html', context)
+
+@login_required
+def risk_create(request):
+    """Crear nuevo riesgo"""
+    if request.method == 'POST':
+        form = RiskForm(request.POST)
+        if form.is_valid():
+            risk = form.save(commit=False)
+            risk.created_by = request.user
+            risk.save()
+            
+            messages.success(
+                request, 
+                f'Riesgo "{risk.code} - {risk.name}" creado exitosamente. '
+                f'Puntuación de riesgo: {risk.inherent_risk_score} ({risk.get_inherent_risk_level_display()})'
+            )
+            return redirect('risk_detail', pk=risk.pk)
+    else:
+        form = RiskForm()
+    
+    # Verificar si hay categorías disponibles
+    categories_count = RiskCategory.objects.count()
+    
+    context = {
+        'form': form,
+        'is_edit': False,
+        'categories_count': categories_count,
+    }
+    
+    return render(request, 'risks/risk_form.html', context)
+
+@login_required
+def risk_edit(request, pk):
+    """Editar riesgo existente"""
+    risk = get_object_or_404(Risk, pk=pk)
+    
+    # Verificar permisos
+    if risk.created_by != request.user and not request.user.is_staff:
+        messages.error(request, 'No tienes permisos para editar este riesgo.')
+        return redirect('risk_detail', pk=pk)
+    
+    if request.method == 'POST':
+        form = RiskForm(request.POST, instance=risk)
+        if form.is_valid():
+            # Guardar valores anteriores para comparación
+            old_score = risk.inherent_risk_score
+            old_level = risk.inherent_risk_level
+            
+            updated_risk = form.save()
+            
+            # Recalcular riesgo residual si cambió el inherente
+            if old_score != updated_risk.inherent_risk_score:
+                updated_risk.calculate_residual_risk()
+                
+                messages.info(
+                    request,
+                    f'El riesgo inherente cambió de {old_score} ({old_level}) a '
+                    f'{updated_risk.inherent_risk_score} ({updated_risk.inherent_risk_level}). '
+                    f'Se recalculó el riesgo residual.'
+                )
+            
+            messages.success(request, f'Riesgo "{updated_risk.code}" actualizado exitosamente.')
+            return redirect('risk_detail', pk=updated_risk.pk)
+    else:
+        form = RiskForm(instance=risk)
+    
+    context = {
+        'form': form,
+        'risk': risk,
+        'is_edit': True,
+    }
+    
+    return render(request, 'risks/risk_form.html', context)
+
+@login_required
+def risk_delete(request, pk):
+    """Eliminar riesgo (con confirmación)"""
+    risk = get_object_or_404(Risk, pk=pk)
+    
+    # Verificar permisos
+    if risk.created_by != request.user and not request.user.is_staff:
+        messages.error(request, 'No tienes permisos para eliminar este riesgo.')
+        return redirect('risk_detail', pk=pk)
+    
+    # Verificar si tiene controles asociados
+    controls_count = risk.control_set.count()
+    
+    if request.method == 'POST':
+        risk_code = risk.code
+        risk_name = risk.name
+        
+        # Si tiene controles, avisar al usuario
+        if controls_count > 0:
+            if not request.POST.get('confirm_delete'):
+                messages.warning(
+                    request, 
+                    f'Este riesgo tiene {controls_count} control(es) asociado(s). '
+                    f'Marque la casilla de confirmación para eliminar.'
+                )
+                return redirect('risk_detail', pk=pk)
+        
+        risk.delete()
+        messages.success(
+            request, 
+            f'Riesgo "{risk_code} - {risk_name}" eliminado exitosamente.'
+        )
+        return redirect('risk_list')
+    
+    context = {
+        'risk': risk,
+        'controls_count': controls_count,
+    }
+    
+    return render(request, 'risks/risk_confirm_delete.html', context)

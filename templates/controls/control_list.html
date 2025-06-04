@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+
+{% block title %}Controles - Auditoría de Riesgos{% endblock %}
+
+{% block page_title %}Gestión de Controles{% endblock %}
+{% block page_subtitle %}Controles implementados para mitigar riesgos{% endblock %}
+
+{% block content %}
+<!-- Estadísticas principales -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stats-card info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Total Controles</h6>
+                        <h2 class="mb-0">{{ stats.total }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-shield-alt fa-2x text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Pendientes</h6>
+                        <h2 class="mb-0 text-warning">{{ stats.pending }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Aprobados</h6>
+                        <h2 class="mb-0 text-success">{{ stats.approved }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Activos</h6>
+                        <h2 class="mb-0 text-primary">{{ stats.active }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-power-off fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros y búsqueda -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="search" class="form-label">Buscar</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       placeholder="Nombre, descripción o riesgo..." value="{{ search }}">
+            </div>
+            <div class="col-md-2">
+                <label for="type" class="form-label">Tipo</label>
+                <select class="form-select" id="type" name="type">
+                    <option value="">Todos los tipos</option>
+                    {% for value, label in control_types %}
+                        <option value="{{ value }}" {% if control_type_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="approval" class="form-label">Estado</label>
+                <select class="form-select" id="approval" name="approval">
+                    <option value="">Todos los estados</option>
+                    {% for value, label in approval_statuses %}
+                        <option value="{{ value }}" {% if approval_filter == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="active" class="form-label">Activo</label>
+                <select class="form-select" id="active" name="active">
+                    <option value="">Todos</option>
+                    <option value="true" {% if active_filter == "true" %}selected{% endif %}>Solo activos</option>
+                    <option value="false" {% if active_filter == "false" %}selected{% endif %}>Solo inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="sort" class="form-label">Ordenar por</label>
+                <select class="form-select" id="sort" name="sort">
+                    <option value="-created_at" {% if sort_by == "-created_at" %}selected{% endif %}>Más reciente</option>
+                    <option value="created_at" {% if sort_by == "created_at" %}selected{% endif %}>Más antiguo</option>
+                    <option value="name" {% if sort_by == "name" %}selected{% endif %}>Nombre A-Z</option>
+                    <option value="-name" {% if sort_by == "-name" %}selected{% endif %}>Nombre Z-A</option>
+                    <option value="auditor_approval" {% if sort_by == "auditor_approval" %}selected{% endif %}>Estado</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+        
+        {% if search or control_type_filter or approval_filter or active_filter %}
+        <div class="mt-3">
+            <a href="{% url 'controls:control_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-times me-2"></i>Limpiar filtros
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Acciones -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <span class="text-muted">{{ page_obj.paginator.count }} control{{ page_obj.paginator.count|pluralize:"es" }} encontrado{{ page_obj.paginator.count|pluralize:"s" }}</span>
+    </div>
+    <div>
+        <a href="{% url 'controls:control_create' %}" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i>Nuevo Control
+        </a>
+        {% if user.is_staff %}
+        <a href="{% url 'controls:auditor_dashboard' %}" class="btn btn-outline-warning">
+            <i class="fas fa-gavel me-2"></i>Dashboard Auditor
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Lista de controles -->
+{% if controls %}
+<div class="row">
+    {% for control in controls %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card risk-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <code class="text-primary">{{ control.risk.code }}</code>
+                    {% if not control.is_active %}
+                    <span class="badge bg-secondary ms-2">Inactivo</span>
+                    {% endif %}
+                </div>
+                <span class="badge badge-large bg-{{ control.get_approval_color }}">
+                    {{ control.get_auditor_approval_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <h6 class="card-title">{{ control.name }}</h6>
+                <p class="card-text text-muted small">
+                    {{ control.description|truncatechars:100 }}
+                </p>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="small text-muted">Tipo</div>
+                            <div class="fw-bold text-info">{{ control.get_control_type_display }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="small text-muted">Frecuencia</div>
+                            <div class="fw-bold text-warning">{{ control.get_frequency_display }}</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="small text-muted">Efectividad</div>
+                            {% with effectiveness=control.get_overall_effectiveness_percentage %}
+                                {% if effectiveness > 0 %}
+                                    <div class="fw-bold text-{% if effectiveness >= 90 %}success{% elif effectiveness >= 70 %}info{% elif effectiveness >= 40 %}warning{% else %}danger{% endif %}">
+                                        {{ effectiveness }}%
+                                    </div>
+                                {% else %}
+                                    <div class="fw-bold text-muted">N/A</div>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="small text-muted mb-2">
+                    <i class="fas fa-user me-1"></i>{{ control.responsible_person }}
+                </div>
+                
+                <div class="small text-muted mb-2">
+                    <i class="fas fa-exclamation-triangle me-1"></i>{{ control.risk.name|truncatechars:40 }}
+                </div>
+                
+                <!-- Indicadores de evidencias -->
+                {% if control.evidence_count > 0 %}
+                <div class="small mb-2">
+                    <i class="fas fa-paperclip text-success me-1"></i>
+                    {{ control.evidence_count }} evidencia{{ control.evidence_count|pluralize:"s" }}
+                    {% if control.validated_evidence_count > 0 %}
+                        <span class="badge bg-success ms-1">{{ control.validated_evidence_count }} validada{{ control.validated_evidence_count|pluralize:"s" }}</span>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="small mb-2 text-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Sin evidencias
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        {{ control.created_at|date:"d/m/Y" }}
+                    </small>
+                    <div>
+                        <a href="{% url 'controls:control_detail' control.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-eye me-1"></i>Ver
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Paginación -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Navegación de controles">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if search %}&search={{ search }}{% endif %}{% if control_type_filter %}&type={{ control_type_filter }}{% endif %}{% if approval_filter %}&approval={{ approval_filter }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">Primera</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if control_type_filter %}&type={{ control_type_filter }}{% endif %}{% if approval_filter %}&approval={{ approval_filter }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">Anterior</a>
+            </li>
+        {% endif %}
+
+        <li class="page-item active">
+            <span class="page-link">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+            </span>
+        </li>
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if control_type_filter %}&type={{ control_type_filter }}{% endif %}{% if approval_filter %}&approval={{ approval_filter }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">Siguiente</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search %}&search={{ search }}{% endif %}{% if control_type_filter %}&type={{ control_type_filter }}{% endif %}{% if approval_filter %}&approval={{ approval_filter }}{% endif %}{% if active_filter %}&active={{ active_filter }}{% endif %}{% if sort_by %}&sort={{ sort_by }}{% endif %}">Última</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<!-- Estado vacío -->
+<div class="text-center py-5">
+    <i class="fas fa-shield-alt fa-4x text-muted mb-4"></i>
+    <h4 class="text-muted">No se encontraron controles</h4>
+    {% if search or control_type_filter or approval_filter or active_filter %}
+        <p class="text-muted mb-4">Intenta ajustar los filtros de búsqueda</p>
+        <a href="{% url 'controls:control_list' %}" class="btn btn-outline-primary">
+            <i class="fas fa-times me-2"></i>Limpiar filtros
+        </a>
+    {% else %}
+        <p class="text-muted mb-4">Los controles ayudan a mitigar los riesgos identificados</p>
+        <a href="{% url 'controls:control_create' %}" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i>Crear Primer Control
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

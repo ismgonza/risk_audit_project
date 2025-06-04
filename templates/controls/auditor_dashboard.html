@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard de Auditor - Controles{% endblock %}
+
+{% block page_title %}Dashboard del Auditor{% endblock %}
+{% block page_subtitle %}Panel de control para revisión y aprobación{% endblock %}
+
+{% block content %}
+<!-- Estadísticas principales -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stats-card warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Controles Pendientes</h6>
+                        <h2 class="mb-0 text-warning">{{ stats.pending_controls }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x text-warning"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">Requieren revisión</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Evidencias Pendientes</h6>
+                        <h2 class="mb-0 text-info">{{ stats.pending_evidences }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-paperclip fa-2x text-info"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">Sin validar</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Aprobados Hoy</h6>
+                        <h2 class="mb-0 text-success">{{ stats.approved_today }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x text-success"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">Controles aprobados</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stats-card primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title text-muted mb-2">Efectividad Promedio</h6>
+                        <h2 class="mb-0 text-primary">{{ stats.effectiveness_avg|floatformat:0 }}%</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chart-line fa-2x text-primary"></i>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">De evidencias validadas</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Distribución de controles por estado -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Distribución de Controles por Estado
+                </h6>
+            </div>
+            <div class="card-body">
+                <canvas id="controlStatusChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-tasks me-2"></i>
+                    Resumen de Estados
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-warning me-3" style="width: 20px; height: 20px;"></div>
+                            <div>
+                                <div class="fw-bold">{{ control_stats.PENDING }}</div>
+                                <small class="text-muted">Pendientes</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-success me-3" style="width: 20px; height: 20px;"></div>
+                            <div>
+                                <div class="fw-bold">{{ control_stats.APPROVED }}</div>
+                                <small class="text-muted">Aprobados</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-danger me-3" style="width: 20px; height: 20px;"></div>
+                            <div>
+                                <div class="fw-bold">{{ control_stats.REJECTED }}</div>
+                                <small class="text-muted">Rechazados</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="badge bg-info me-3" style="width: 20px; height: 20px;"></div>
+                            <div>
+                                <div class="fw-bold">{{ control_stats.NEEDS_REVISION }}</div>
+                                <small class="text-muted">Necesitan Revisión</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="progress mt-3" style="height: 10px;">
+                    {% with total=stats.total_controls %}
+                    <div class="progress-bar bg-warning" style="width: {% widthratio control_stats.PENDING total 100 %}%"></div>
+                    <div class="progress-bar bg-success" style="width: {% widthratio control_stats.APPROVED total 100 %}%"></div>
+                    <div class="progress-bar bg-danger" style="width: {% widthratio control_stats.REJECTED total 100 %}%"></div>
+                    <div class="progress-bar bg-info" style="width: {% widthratio control_stats.NEEDS_REVISION total 100 %}%"></div>
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Controles pendientes de aprobación -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Controles Pendientes de Aprobación
+                </h6>
+                {% if pending_controls %}
+                <span class="badge bg-warning">{{ pending_controls|length }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if pending_controls %}
+                <div class="list-group list-group-flush">
+                    {% for control in pending_controls %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">{{ control.name }}</h6>
+                            <p class="mb-1 text-muted small">{{ control.description|truncatechars:80 }}</p>
+                            <div class="d-flex align-items-center">
+                                <small class="text-muted me-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>{{ control.risk.code }}
+                                </small>
+                                <small class="text-muted me-2">
+                                    <i class="fas fa-user me-1"></i>{{ control.created_by.get_full_name|default:control.created_by.username }}
+                                </small>
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>{{ control.created_at|date:"d/m/Y" }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="ms-3">
+                            <a href="{% url 'controls:control_detail' control.pk %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i>Revisar
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if pending_controls|length > 5 %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'controls:control_list' %}?approval=PENDING" class="btn btn-outline-warning">
+                        Ver todos los pendientes
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <h6 class="text-muted">¡Excelente!</h6>
+                    <p class="text-muted">No hay controles pendientes de aprobación</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Evidencias pendientes de validación -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-paperclip me-2"></i>
+                    Evidencias Pendientes de Validación
+                </h6>
+                {% if pending_evidences %}
+                <span class="badge bg-info">{{ pending_evidences|length }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if pending_evidences %}
+                <div class="list-group list-group-flush">
+                    {% for evidence in pending_evidences %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ evidence.control.name }}</h6>
+                                <p class="mb-1 text-muted small">{{ evidence.description|truncatechars:60 }}</p>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-{% if evidence.effectiveness_percentage >= 90 %}success{% elif evidence.effectiveness_percentage >= 70 %}info{% elif evidence.effectiveness_percentage >= 40 %}warning{% else %}danger{% endif %} me-2">
+                                        {{ evidence.effectiveness_percentage }}%
+                                    </span>
+                                    <small class="text-muted me-2">
+                                        <i class="fas fa-calendar me-1"></i>{{ evidence.evidence_date|date:"d/m/Y" }}
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user me-1"></i>{{ evidence.uploaded_by.get_full_name|default:evidence.uploaded_by.username }}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="ms-3">
+                                <a href="{% url 'controls:control_detail' evidence.control.pk %}" class="btn btn-outline-info btn-sm">
+                                    <i class="fas fa-eye me-1"></i>Ver
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if pending_evidences|length > 5 %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'controls:control_list' %}?has_pending_evidence=true" class="btn btn-outline-info">
+                        Ver todas las evidencias
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-clipboard-check fa-3x text-success mb-3"></i>
+                    <h6 class="text-muted">¡Todo al día!</h6>
+                    <p class="text-muted">No hay evidencias pendientes de validación</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Acciones rápidas -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">Acciones Rápidas del Auditor</h6>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'controls:control_list' %}?approval=PENDING" class="btn btn-outline-warning">
+                        <i class="fas fa-clock me-2"></i>Revisar Pendientes
+                    </a>
+                    <a href="{% url 'controls:control_list' %}?approval=APPROVED" class="btn btn-outline-success">
+                        <i class="fas fa-check-circle me-2"></i>Ver Aprobados
+                    </a>
+                    <a href="{% url 'controls:control_list' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-2"></i>Todos los Controles
+                    </a>
+                    <a href="{% url 'risk_matrix' %}" class="btn btn-outline-info">
+                        <i class="fas fa-th me-2"></i>Matriz de Riesgo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Gráfico de distribución de controles
+const ctx = document.getElementById('controlStatusChart').getContext('2d');
+
+const controlData = {
+    labels: ['Pendientes', 'Aprobados', 'Rechazados', 'Necesitan Revisión'],
+    datasets: [{
+        data: [
+            {{ control_stats.PENDING }},
+            {{ control_stats.APPROVED }},
+            {{ control_stats.REJECTED }},
+            {{ control_stats.NEEDS_REVISION }}
+        ],
+        backgroundColor: [
+            '#ffc107', // warning
+            '#28a745', // success
+            '#dc3545', // danger
+            '#17a2b8'  // info
+        ],
+        borderWidth: 2,
+        borderColor: '#fff'
+    }]
+};
+
+new Chart(ctx, {
+    type: 'doughnut',
+    data: controlData,
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20,
+                    usePointStyle: true
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                        return `${context.label}: ${context.parsed} (${percentage}%)`;
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Auto-refresh cada 5 minutos para mantener datos actualizados
+setInterval(function() {
+    location.reload();
+}, 300000);
+
+// Notificación de nuevos pendientes (simulada)
+function checkForNewPendingItems() {
+    const pendingCount = {{ stats.pending_controls }} + {{ stats.pending_evidences }};
+    
+    if (pendingCount > 0) {
+        document.title = `(${pendingCount}) Dashboard de Auditor - Controles`;
+    } else {
+        document.title = 'Dashboard de Auditor - Controles';
+    }
+}
+
+checkForNewPendingItems();
+</script>
+{% endblock %}

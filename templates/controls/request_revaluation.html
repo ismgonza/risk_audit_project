@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitar Re-evaluación - {{ control.name }}{% endblock %}
+
+{% block page_title %}Solicitar Re-evaluación{% endblock %}
+{% block page_subtitle %}{{ control.name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'controls:control_list' %}">Controles</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'controls:control_detail' control.pk %}">{{ control.name|truncatechars:20 }}</a></li>
+        <li class="breadcrumb-item active">Solicitar Re-evaluación</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-redo me-2"></i>
+                    Solicitar Nueva Evaluación
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Información del control -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="text-primary">{{ control.name }}</h6>
+                                <p class="text-muted mb-2">{{ control.description|truncatechars:150 }}</p>
+                                <div class="small">
+                                    <span class="badge bg-info me-2">{{ control.get_control_type_display }}</span>
+                                    <span class="badge bg-secondary me-2">{{ control.get_frequency_display }}</span>
+                                    <span class="text-muted">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>{{ control.risk.code }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="text-muted small">Estado actual:</div>
+                                <span class="badge bg-info">
+                                    {{ control.get_auditor_approval_display }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comentarios previos del auditor -->
+                {% if control.auditor_feedback %}
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-comment me-2"></i>Comentarios del Auditor</h6>
+                    <div class="bg-white p-3 rounded border-start border-4 border-info">
+                        {{ control.auditor_feedback|linebreaks }}
+                    </div>
+                    {% if control.auditor %}
+                    <small class="text-muted">
+                        - {{ control.auditor.get_full_name|default:control.auditor.username }}
+                    </small>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Instrucciones -->
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-info-circle me-2"></i>Antes de solicitar re-evaluación</h6>
+                    <p class="mb-2">Asegúrese de haber realizado las mejoras o cambios solicitados por el auditor:</p>
+                    <ul class="mb-0">
+                        <li>Revisar y actualizar la descripción del control</li>
+                        <li>Ajustar la frecuencia o tipo si fue sugerido</li>
+                        <li>Clarificar responsabilidades</li>
+                        <li>Agregar evidencias adicionales si es necesario</li>
+                    </ul>
+                </div>
+
+                <!-- Formulario -->
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="user_comment" class="form-label">
+                            <i class="fas fa-edit me-2"></i>
+                            Comentarios sobre los cambios realizados (Opcional)
+                        </label>
+                        <textarea class="form-control" id="user_comment" name="user_comment" rows="4" 
+                                placeholder="Describa brevemente qué cambios realizó en respuesta a los comentarios del auditor..."></textarea>
+                        <div class="form-text">
+                            Este comentario ayudará al auditor a entender qué mejoras se implementaron.
+                        </div>
+                    </div>
+
+                    <!-- Confirmación -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirm_changes" required>
+                                <label class="form-check-label" for="confirm_changes">
+                                    <strong>Confirmo que he realizado las mejoras solicitadas y el control está listo para una nueva evaluación</strong>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'controls:control_detail' control.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane me-2"></i>
+                            Solicitar Re-evaluación
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Información adicional -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    ¿Qué sucede después?
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="badge bg-primary me-3 mt-1">1</div>
+                            <div>
+                                <strong>Notificación al Auditor</strong>
+                                <br><small class="text-muted">El auditor será informado de la solicitud</small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="badge bg-primary me-3 mt-1">2</div>
+                            <div>
+                                <strong>Cambio de Estado</strong>
+                                <br><small class="text-muted">El control pasará a "Pendiente de Re-evaluación"</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="badge bg-primary me-3 mt-1">3</div>
+                            <div>
+                                <strong>Nueva Revisión</strong>
+                                <br><small class="text-muted">El auditor evaluará los cambios realizados</small>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="badge bg-primary me-3 mt-1">4</div>
+                            <div>
+                                <strong>Decisión Final</strong>
+                                <br><small class="text-muted">Aprobación, rechazo o nueva revisión</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
