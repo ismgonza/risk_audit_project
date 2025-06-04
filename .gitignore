@@ -1,0 +1,21 @@
+# Python compiled files
+*.pyc
+__pycache__/
+*/migrations/*
+
+# Vim swap files
+*.un~
+*.swp
+*.swo
+.vscode/
+
+# DB files
+db.sqlite3
+db_backup/
+
+# Static and media files (optional, if managed separately)
+static/*
+
+# pyenv 
+.python-version
+.DS_Store

@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ risk.code }} - {{ risk.name }}{% endblock %}
+
+{% block page_title %}{{ risk.code }} - {{ risk.name }}{% endblock %}
+{% block page_subtitle %}Detalle completo del riesgo{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'risk_list' %}">Riesgos</a></li>
+        <li class="breadcrumb-item active">{{ risk.code }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <!-- Información principal del riesgo -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Información del Riesgo
+                </h5>
+                {% if can_edit %}
+                <a href="/admin/risks/risk/{{ risk.pk }}/change/" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-edit me-2"></i>Editar
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Código:</strong>
+                        <code class="ms-2">{{ risk.code }}</code>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Categoría:</strong>
+                        <span class="ms-2">{{ risk.category.name }}</span>
+                        <span class="badge bg-secondary ms-2">{{ risk.category.get_risk_appetite_display }}</span>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Descripción:</strong>
+                    <p class="mt-2 text-muted">{{ risk.description }}</p>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Creado por:</strong>
+                        <span class="ms-2">{{ risk.created_by.get_full_name|default:risk.created_by.username }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Fecha de creación:</strong>
+                        <span class="ms-2">{{ risk.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+                </div>
+                
+                {% if risk.updated_at != risk.created_at %}
+                <div class="small text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    Última actualización: {{ risk.updated_at|date:"d/m/Y H:i" }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Controles asociados -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Controles ({{ controls|length }})
+                </h5>
+                <a href="/controls/create/{{ risk.pk }}/" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus me-2"></i>Nuevo Control
+                </a>
+            </div>
+            <div class="card-body">
+                {% if controls %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Frecuencia</th>
+                                <th>Estado</th>
+                                <th>Efectividad</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for control in controls %}
+                            <tr>
+                                <td>
+                                    <strong>{{ control.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ control.description|truncatechars:60 }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ control.get_control_type_display }}</span>
+                                </td>
+                                <td>{{ control.get_frequency_display }}</td>
+                                <td>
+                                    <span class="badge bg-{{ control.get_approval_color }}">
+                                        {{ control.get_auditor_approval_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% with percentage=control.get_overall_effectiveness_percentage %}
+                                        {% if percentage > 0 %}
+                                            <span class="fw-bold text-{% if percentage >= 90 %}success{% elif percentage >= 70 %}info{% elif percentage >= 40 %}warning{% else %}danger{% endif %}">
+                                                {{ percentage }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">Sin evidencias</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/controls/{{ control.pk }}/" class="btn btn-outline-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        {% if user.is_staff and control.auditor_approval == 'PENDING' %}
+                                        <a href="/controls/{{ control.pk }}/review/" class="btn btn-outline-warning">
+                                            <i class="fas fa-gavel"></i>
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-shield-alt fa-3x text-muted mb-3"></i>
+                    <h6 class="text-muted">No hay controles definidos</h6>
+                    <p class="text-muted mb-3">Los controles ayudan a mitigar o reducir este riesgo</p>
+                    <a href="/controls/create/{{ risk.pk }}/" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Crear Primer Control
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel lateral con métricas -->
+    <div class="col-md-4">
+        <!-- Riesgo inherente -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-exclamation me-2"></i>
+                    Riesgo Inherente
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div class="row">
+                    <div class="col-4">
+                        <div class="border rounded p-3 mb-2">
+                            <h4 class="text-primary mb-1">{{ risk.probability }}</h4>
+                            <small class="text-muted">Probabilidad</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-3 mb-2">
+                            <h4 class="text-warning mb-1">{{ risk.impact }}</h4>
+                            <small class="text-muted">Impacto</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-3 mb-2">
+                            <h4 class="text-{{ risk.get_risk_color }} mb-1">{{ risk.inherent_risk_score }}</h4>
+                            <small class="text-muted">Puntuación</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <span class="badge badge-large bg-{{ risk.get_risk_color }}">
+                        Riesgo {{ risk.get_inherent_risk_level_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Riesgo residual -->
+        {% if risk.residual_risk_score %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-arrow-down me-2"></i>
+                    Riesgo Residual
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <div class="row">
+                    <div class="col-4">
+                        <div class="border rounded p-3 mb-2">
+                            <h4 class="text-primary mb-1">{{ risk.residual_probability|floatformat:1 }}</h4>
+                            <small class="text-muted">Probabilidad</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-3 mb-2">
+                            <h4 class="text-warning mb-1">{{ risk.residual_impact|floatformat:1 }}</h4>
+                            <small class="text-muted">Impacto</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-3 mb-2">
+                            <h4 class="text-{% if risk.residual_risk_level == 'HIGH' %}danger{% elif risk.residual_risk_level == 'MEDIUM' %}warning{% else %}success{% endif %} mb-1">
+                                {{ risk.residual_risk_score|floatformat:1 }}
+                            </h4>
+                            <small class="text-muted">Puntuación</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <span class="badge badge-large bg-{% if risk.residual_risk_level == 'HIGH' %}danger{% elif risk.residual_risk_level == 'MEDIUM' %}warning{% else %}success{% endif %}">
+                        Riesgo {{ risk.get_residual_risk_level_display }}
+                    </span>
+                </div>
+                
+                <!-- Reducción de riesgo -->
+                {% if risk.inherent_risk_score > risk.residual_risk_score %}
+                <div class="mt-3 p-2 bg-success bg-opacity-10 rounded">
+                    <small class="text-success fw-bold">
+                        <i class="fas fa-check-circle me-1"></i>
+                        Riesgo reducido efectivamente
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Información de la categoría -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-tag me-2"></i>
+                    Categoría
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6 class="text-primary">{{ risk.category.name }}</h6>
+                <p class="text-muted small">{{ risk.category.description }}</p>
+                <div class="mt-2">
+                    <span class="badge bg-secondary">
+                        Apetito: {{ risk.category.get_risk_appetite_display }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Acciones rápidas -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Acciones Rápidas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/controls/create/{{ risk.pk }}/" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Nuevo Control
+                    </a>
+                    <a href="{% url 'risk_matrix' %}" class="btn btn-outline-info">
+                        <i class="fas fa-th me-2"></i>Ver en Matriz
+                    </a>
+                    {% if can_edit %}
+                    <a href="/admin/risks/risk/{{ risk.pk }}/change/" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-2"></i>Editar Riesgo
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'risk_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Volver a Lista
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.badge-large {
+    font-size: 1em;
+    padding: 10px 15px;
+}
+</style>
+{% endblock %}

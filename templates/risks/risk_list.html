@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+
+{% block title %}Lista de Riesgos - Auditoría de Riesgos{% endblock %}
+
+{% block page_title %}Gestión de Riesgos{% endblock %}
+{% block page_subtitle %}Listado completo de riesgos identificados{% endblock %}
+
+{% block content %}
+<!-- Filtros y búsqueda -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="search" class="form-label">Buscar</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       placeholder="Código, nombre o descripción..." value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <label for="category" class="form-label">Categoría</label>
+                <select class="form-select" id="category" name="category">
+                    <option value="">Todas las categorías</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if category_filter == cat.id|stringformat:"s" %}selected{% endif %}>
+                            {{ cat.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="level" class="form-label">Nivel de Riesgo</label>
+                <select class="form-select" id="level" name="level">
+                    <option value="">Todos los niveles</option>
+                    <option value="HIGH" {% if level_filter == "HIGH" %}selected{% endif %}>Alto</option>
+                    <option value="MEDIUM" {% if level_filter == "MEDIUM" %}selected{% endif %}>Medio</option>
+                    <option value="LOW" {% if level_filter == "LOW" %}selected{% endif %}>Bajo</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>Filtrar
+                    </button>
+                </div>
+            </div>
+        </form>
+        
+        {% if search or category_filter or level_filter %}
+        <div class="mt-3">
+            <a href="{% url 'risk_list' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-times me-2"></i>Limpiar filtros
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Acciones -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <span class="text-muted">{{ risks|length }} riesgo{{ risks|length|pluralize:"s" }} encontrado{{ risks|length|pluralize:"s" }}</span>
+    </div>
+    <div>
+        <a href="/admin/risks/risk/add/" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i>Nuevo Riesgo
+        </a>
+        <a href="{% url 'risk_matrix' %}" class="btn btn-outline-info">
+            <i class="fas fa-th me-2"></i>Ver Matriz
+        </a>
+    </div>
+</div>
+
+<!-- Lista de riesgos -->
+{% if risks %}
+<div class="row">
+    {% for risk in risks %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card risk-card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <code class="text-primary">{{ risk.code }}</code>
+                </div>
+                <span class="badge badge-large bg-{{ risk.get_risk_color }}">
+                    {{ risk.get_inherent_risk_level_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <h6 class="card-title">{{ risk.name }}</h6>
+                <p class="card-text text-muted small">
+                    {{ risk.description|truncatechars:100 }}
+                </p>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold text-primary">{{ risk.probability }}</div>
+                            <small class="text-muted">Probabilidad</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold text-warning">{{ risk.impact }}</div>
+                            <small class="text-muted">Impacto</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold text-{{ risk.get_risk_color }}">{{ risk.inherent_risk_score }}</div>
+                            <small class="text-muted">Puntuación</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="small text-muted mb-2">
+                    <i class="fas fa-tag me-1"></i>{{ risk.category.name }}
+                </div>
+                
+                <!-- Indicadores de controles -->
+                {% if risk.control_set.all %}
+                <div class="small mb-2">
+                    <i class="fas fa-shield-alt text-success me-1"></i>
+                    {{ risk.control_set.count }} control{{ risk.control_set.count|pluralize:"es" }}
+                    {% with approved_controls=risk.control_set.all|length %}
+                        {% if approved_controls > 0 %}
+                            <span class="badge bg-success ms-1">{{ approved_controls }}</span>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+                {% else %}
+                <div class="small mb-2 text-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Sin controles
+                </div>
+                {% endif %}
+                
+                <!-- Riesgo residual si existe -->
+                {% if risk.residual_risk_score %}
+                <div class="small text-info">
+                    <i class="fas fa-arrow-down me-1"></i>
+                    Residual: {{ risk.residual_risk_score|floatformat:1 }} ({{ risk.get_residual_risk_level_display }})
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        {{ risk.created_at|date:"d/m/Y" }}
+                    </small>
+                    <div>
+                        <a href="{% url 'risk_detail' risk.pk %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-eye me-1"></i>Ver
+                        </a>
+                        {% if risk.created_by == user or user.is_staff %}
+                        <a href="/admin/risks/risk/{{ risk.pk }}/change/" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<!-- Estado vacío -->
+<div class="text-center py-5">
+    <i class="fas fa-search fa-4x text-muted mb-4"></i>
+    <h4 class="text-muted">No se encontraron riesgos</h4>
+    {% if search or category_filter or level_filter %}
+        <p class="text-muted mb-4">Intenta ajustar los filtros de búsqueda</p>
+        <a href="{% url 'risk_list' %}" class="btn btn-outline-primary">
+            <i class="fas fa-times me-2"></i>Limpiar filtros
+        </a>
+    {% else %}
+        <p class="text-muted mb-4">Comienza agregando el primer riesgo al sistema</p>
+        <a href="/admin/risks/risk/add/" class="btn btn-success">
+            <i class="fas fa-plus me-2"></i>Crear Primer Riesgo
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Resumen rápido -->
+{% if risks %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">Resumen de esta vista</h6>
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="fw-bold text-danger">
+                            {{ risks|length }} 
+                            {% for risk in risks %}{% if risk.inherent_risk_level == 'HIGH' %}{% if forloop.first %}0{% endif %}{% endif %}{% endfor %}
+                        </div>
+                        <small class="text-muted">Riesgos mostrados</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fw-bold text-success">
+                            {% for risk in risks %}{% if risk.control_set.all %}1{% else %}0{% endif %}{% endfor %}
+                        </div>
+                        <small class="text-muted">Con controles</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fw-bold text-warning">
+                            Promedio: 
+                            {% if risks %}
+                                {% for risk in risks %}{{ risk.inherent_risk_score }}{% if not forloop.last %},{% endif %}{% endfor %}
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Puntuación promedio</small>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-chart-bar me-1"></i>Ver Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
