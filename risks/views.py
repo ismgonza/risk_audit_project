@@ -66,7 +66,7 @@ def dashboard(request):
 @login_required
 def risk_list(request):
     """Lista de riesgos con filtros"""
-    risks = Risk.objects.all().select_related('category', 'created_by')
+    risks = Risk.objects.all().select_related('category', 'created_by').prefetch_related('control_set')
     
     # Filtros
     search = request.GET.get('search')
@@ -85,15 +85,36 @@ def risk_list(request):
     if level_filter:
         risks = risks.filter(inherent_risk_level=level_filter)
     
-    # Ordenar por código
-    risks = risks.order_by('code')
+    # Ordenar por código por defecto
+    sort_by = request.GET.get('sort', 'code')
+    valid_sorts = ['code', '-code', 'name', '-name', 'inherent_risk_score', '-inherent_risk_score', 'created_at', '-created_at']
+    if sort_by in valid_sorts:
+        risks = risks.order_by(sort_by)
+    else:
+        risks = risks.order_by('code')
+    
+    # Agregar datos calculados para cada riesgo
+    risks_with_data = []
+    for risk in risks:
+        controls = risk.control_set.all()
+        approved_controls = controls.filter(auditor_approval='APPROVED', is_active=True)
+        
+        risk_data = {
+            'risk': risk,
+            'total_controls': controls.count(),
+            'approved_controls': approved_controls.count(),
+            'has_residual': risk.residual_risk_score is not None,
+        }
+        risks_with_data.append(risk_data)
     
     context = {
-        'risks': risks,
+        'risks_with_data': risks_with_data,
         'categories': RiskCategory.objects.all(),
         'search': search,
         'category_filter': category_filter,
         'level_filter': level_filter,
+        'sort_by': sort_by,
+        'total_risks': len(risks_with_data),
     }
     
     return render(request, 'risks/risk_list.html', context)

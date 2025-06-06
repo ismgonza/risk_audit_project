@@ -1,0 +1,376 @@
+{% extends 'base.html' %}
+
+{% block title %}Evidencia - {{ evidence.control.name }}{% endblock %}
+
+{% block page_title %}Detalle de Evidencia{% endblock %}
+{% block page_subtitle %}{{ evidence.control.name }} - {{ evidence.evidence_date|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'controls:control_list' %}">Controles</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'controls:control_detail' control.pk %}">{{ control.name|truncatechars:20 }}</a></li>
+        <li class="breadcrumb-item active">Evidencia {{ evidence.evidence_date|date:"d/m/Y" }}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <!-- Información principal de la evidencia -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-paperclip me-2"></i>
+                    Información de la Evidencia
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Estado de validación -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <strong>Estado de Validación:</strong>
+                        <br>
+                        {% if evidence.is_validated %}
+                            <span class="badge badge-large bg-success">
+                                <i class="fas fa-check-circle me-1"></i>Validado
+                            </span>
+                        {% else %}
+                            <span class="badge badge-large bg-warning">
+                                <i class="fas fa-clock me-1"></i>Pendiente de Validación
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Efectividad:</strong>
+                        <br>
+                        <span class="badge badge-large bg-{% if evidence.effectiveness_percentage >= 90 %}success{% elif evidence.effectiveness_percentage >= 70 %}info{% elif evidence.effectiveness_percentage >= 40 %}warning{% else %}danger{% endif %}">
+                            {{ evidence.effectiveness_percentage }}% - {{ evidence.get_effectiveness_display_short }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Fecha y descripción -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Fecha de la Evidencia:</strong>
+                        <br>
+                        <span class="fs-5 text-primary">{{ evidence.evidence_date|date:"d/m/Y H:i" }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Subido por:</strong>
+                        <br>
+                        <span class="ms-2">{{ evidence.uploaded_by.get_full_name|default:evidence.uploaded_by.username }}</span>
+                        <br>
+                        <small class="text-muted">{{ evidence.uploaded_at|date:"d/m/Y H:i" }}</small>
+                    </div>
+                </div>
+                
+                <!-- Descripción completa -->
+                <div class="mb-3">
+                    <strong>Descripción de la Evidencia:</strong>
+                    <div class="mt-2 p-3 bg-light rounded">
+                        {{ evidence.description|linebreaks }}
+                    </div>
+                </div>
+                
+                <!-- Documento adjunto -->
+                {% if evidence.document %}
+                <div class="mb-3">
+                    <strong>Documento de Soporte:</strong>
+                    <br>
+                    <div class="mt-2">
+                        <a href="{{ evidence.document.url }}" target="_blank" class="btn btn-outline-primary">
+                            <i class="fas fa-download me-2"></i>
+                            Descargar Documento
+                        </a>
+                        <small class="text-muted ms-3">
+                            <i class="fas fa-file me-1"></i>
+                            {{ evidence.document.name|default:"documento.pdf" }}
+                        </small>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Información de validación -->
+                {% if evidence.validated_by %}
+                <div class="mb-3">
+                    <strong>Información de Validación:</strong>
+                    <div class="mt-2">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">Validado por:</small>
+                                <br>
+                                <span>{{ evidence.validated_by.get_full_name|default:evidence.validated_by.username }}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">Fecha de validación:</small>
+                                <br>
+                                <span>{{ evidence.validation_date|date:"d/m/Y H:i" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Comentarios del auditor -->
+                {% if evidence.auditor_review %}
+                <div class="mb-3">
+                    <strong>Comentarios del Auditor:</strong>
+                    <div class="alert alert-{% if evidence.is_validated %}success{% else %}danger{% endif %} mt-2">
+                        <i class="fas fa-comment me-2"></i>
+                        {{ evidence.auditor_review|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel lateral -->
+    <div class="col-md-4">
+        <!-- Información del control -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Control Asociado
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6 class="text-primary">{{ control.name }}</h6>
+                <p class="text-muted small">{{ control.description|truncatechars:100 }}</p>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-12">
+                        <div class="border rounded p-2">
+                            <div class="small text-muted">Tipo de Control</div>
+                            <span class="badge bg-info">{{ control.get_control_type_display }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            <div class="small text-muted">Estado</div>
+                            <span class="badge bg-{{ control.get_approval_color }}">
+                                {{ control.get_auditor_approval_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            <div class="small text-muted">Efectividad</div>
+                            <div class="fw-bold text-{% if control.get_overall_effectiveness_percentage >= 90 %}success{% elif control.get_overall_effectiveness_percentage >= 70 %}info{% elif control.get_overall_effectiveness_percentage >= 40 %}warning{% else %}danger{% endif %}">
+                                {{ control.get_overall_effectiveness_percentage }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid">
+                    <a href="{% url 'controls:control_detail' control.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-2"></i>Ver Control Completo
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Riesgo asociado -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Riesgo Asociado
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6 class="text-primary">{{ control.risk.code }} - {{ control.risk.name|truncatechars:30 }}</h6>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            <div class="fw-bold text-{{ control.risk.get_risk_color }}">{{ control.risk.inherent_risk_score }}</div>
+                            <small class="text-muted">Inherente</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            {% if control.risk.residual_risk_score %}
+                            <div class="fw-bold text-{% if control.risk.residual_risk_level == 'HIGH' %}danger{% elif control.risk.residual_risk_level == 'MEDIUM' %}warning{% else %}success{% endif %}">
+                                {{ control.risk.residual_risk_score|floatformat:1 }}
+                            </div>
+                            <small class="text-muted">Residual</small>
+                            {% else %}
+                            <div class="fw-bold text-muted">N/A</div>
+                            <small class="text-muted">Sin controles</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Otras evidencias -->
+        {% if other_evidences %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Otras Evidencias
+                </h6>
+            </div>
+            <div class="card-body">
+                {% for other_evidence in other_evidences %}
+                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 {% if not forloop.last %}border-bottom{% endif %}">
+                    <div>
+                        <div class="fw-bold">{{ other_evidence.evidence_date|date:"d/m/Y" }}</div>
+                        <small class="text-muted">{{ other_evidence.description|truncatechars:40 }}</small>
+                    </div>
+                    <div>
+                        {% if other_evidence.is_validated %}
+                        <span class="badge bg-success">✓</span>
+                        {% else %}
+                        <span class="badge bg-warning">⏳</span>
+                        {% endif %}
+                        <a href="{% url 'controls:evidence_detail' other_evidence.pk %}" class="btn btn-outline-primary btn-sm ms-1">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Acciones rápidas -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Acciones Rápidas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <div class="btn-group">
+                        {% if can_validate %}
+                        <button class="btn btn-outline-success btn-sm" onclick="validateEvidence()">
+                            <i class="fas fa-check me-2"></i>Validar
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="rejectEvidence()">
+                            <i class="fas fa-times me-2"></i>Rechazar
+                        </button>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{% url 'controls:control_detail' control.pk %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Volver al Control
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para validación -->
+<div class="modal fade" id="validateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Validar Evidencia
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'controls:evidence_validate' evidence.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <i class="fas fa-info-circle me-2"></i>
+                        ¿Confirma que esta evidencia es válida y correcta?
+                    </div>
+                    <div class="mb-3">
+                        <label for="validateReason" class="form-label">Comentarios (opcional):</label>
+                        <textarea class="form-control" id="validateReason" name="review" rows="3" 
+                                placeholder="Agregue comentarios sobre la validación..."></textarea>
+                    </div>
+                    <input type="hidden" name="action" value="validate">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Validar Evidencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para rechazo -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-times-circle me-2"></i>
+                    Rechazar Evidencia
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'controls:evidence_validate' evidence.pk %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Debe explicar la razón del rechazo
+                    </div>
+                    <div class="mb-3">
+                        <label for="rejectReason" class="form-label">Razón del rechazo:</label>
+                        <textarea class="form-control" id="rejectReason" name="review" rows="4" 
+                                placeholder="Explique por qué rechaza esta evidencia..." required></textarea>
+                    </div>
+                    <input type="hidden" name="action" value="reject">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times me-2"></i>Rechazar Evidencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.badge-large {
+    font-size: 1em;
+    padding: 8px 12px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function validateEvidence() {
+    const modal = new bootstrap.Modal(document.getElementById('validateModal'));
+    document.getElementById('validateReason').value = '';
+    modal.show();
+}
+
+function rejectEvidence() {
+    const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    document.getElementById('rejectReason').value = '';
+    modal.show();
+}
+
+console.log('✅ Evidence detail page loaded');
+</script>
+{% endblock %}

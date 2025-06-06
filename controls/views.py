@@ -38,20 +38,38 @@ def control_list(request):
     
     # Ordenar
     sort_by = request.GET.get('sort', '-created_at')
-    controls = controls.order_by(sort_by)
+    valid_sorts = ['risk__code', '-risk__code', 'name', '-name', 'auditor_approval', '-auditor_approval', 'created_at', '-created_at']
+    if sort_by in valid_sorts:
+        controls = controls.order_by(sort_by)
+    else:
+        controls = controls.order_by('-created_at')
     
-    # Agregar datos calculados a cada control
-    controls_with_stats = []
+    # Agregar datos calculados para cada control
+    controls_with_data = []
     for control in controls:
         evidences = control.controlevidence_set.all()
-        validated_count = sum(1 for e in evidences if e.is_validated)
+        validated_evidences = evidences.filter(is_validated=True)
+        pending_evidences = evidences.filter(is_validated=False)
         
-        control.evidence_count = evidences.count()
-        control.validated_evidence_count = validated_count
-        controls_with_stats.append(control)
+        # Calcular evidencias rechazadas (las que fueron validadas pero luego rechazadas)
+        rejected_evidences = evidences.filter(
+            validated_by__isnull=False, 
+            is_validated=False,
+            auditor_review__icontains='rechaz'  # Aproximación
+        )
+        
+        control_data = {
+            'control': control,
+            'total_evidences': evidences.count(),
+            'validated_evidences': validated_evidences.count(),
+            'pending_evidences': pending_evidences.count(),
+            'rejected_evidences': rejected_evidences.count(),
+            'effectiveness_percentage': control.get_overall_effectiveness_percentage(),
+        }
+        controls_with_data.append(control_data)
     
     # Paginación
-    paginator = Paginator(controls_with_stats, 12)
+    paginator = Paginator(controls_with_data, 20)  # 20 controles por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -66,7 +84,7 @@ def control_list(request):
     
     context = {
         'page_obj': page_obj,
-        'controls': page_obj,
+        'controls_with_data': page_obj,
         'stats': stats,
         'search': search,
         'control_type_filter': control_type_filter,
@@ -90,6 +108,47 @@ def control_detail(request, pk):
     can_approve = request.user.is_staff and control.auditor_approval in ['PENDING', 'PENDING_REVALUATION']
     can_add_evidence = can_edit
     
+    # Procesar historial de comentarios para el timeline
+    feedback_timeline = []
+    if control.auditor_feedback:
+        # Dividir por secciones de comentarios
+        sections = control.auditor_feedback.split('--- ')
+        for section in sections:
+            section = section.strip()
+            if len(section) > 5:  # Solo secciones con contenido
+                if "Comentarios del usuario" in section:
+                    # Extraer fecha si existe
+                    import re
+                    date_match = re.search(r'\((\d{4}-\d{2}-\d{2} \d{2}:\d{2})\)', section)
+                    date_str = date_match.group(1) if date_match else ""
+                    
+                    # Extraer contenido del comentario (después de la línea de separación)
+                    lines = section.split('\n')
+                    content_lines = []
+                    start_content = False
+                    for line in lines:
+                        if start_content:
+                            content_lines.append(line)
+                        elif line.strip().endswith('---'):
+                            start_content = True
+                    
+                    content = '\n'.join(content_lines).strip()
+                    
+                    feedback_timeline.append({
+                        'type': 'user',
+                        'content': content,
+                        'date': date_str,
+                        'author': 'Usuario'
+                    })
+                else:
+                    # Comentario del auditor
+                    feedback_timeline.append({
+                        'type': 'auditor',
+                        'content': section,
+                        'date': '',
+                        'author': control.auditor.get_full_name() if control.auditor else 'Auditor'
+                    })
+    
     context = {
         'control': control,
         'evidences': evidences,
@@ -97,6 +156,7 @@ def control_detail(request, pk):
         'can_approve': can_approve,
         'can_add_evidence': can_add_evidence,
         'effectiveness_chart_data': _get_effectiveness_chart_data(evidences),
+        'feedback_timeline': feedback_timeline,  # Nueva variable para el timeline
     }
     
     return render(request, 'controls/control_detail.html', context)
@@ -226,38 +286,100 @@ def evidence_create(request, control_id):
 
 @login_required
 def evidence_validate(request, pk):
-    """Validar evidencia (solo para staff)"""
+    """Validar evidencia - VERSIÓN BULLETPROOF"""
+    
+    # Solo staff puede validar
     if not request.user.is_staff:
         messages.error(request, 'No tienes permisos para validar evidencias.')
         return redirect('controls:control_list')
     
+    # Obtener evidencia
     evidence = get_object_or_404(ControlEvidence, pk=pk)
+    control = evidence.control
     
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        review = request.POST.get('review', '')
-        
+    # Solo POST permitido
+    if request.method != 'POST':
+        messages.error(request, 'Método no permitido.')
+        return redirect('controls:control_detail', pk=control.pk)
+    
+    # Obtener datos del formulario
+    action = request.POST.get('action', '').strip()
+    review = request.POST.get('review', '').strip()
+    
+    print(f"🔍 DEBUG - Evidence ID: {pk}")
+    print(f"🔍 DEBUG - Action: '{action}'")
+    print(f"🔍 DEBUG - Review: '{review}'")
+    print(f"🔍 DEBUG - Current validated: {evidence.is_validated}")
+    
+    try:
         if action == 'validate':
+            # VALIDAR
             evidence.is_validated = True
             evidence.validated_by = request.user
             evidence.validation_date = timezone.now()
-            evidence.auditor_review = review
+            evidence.auditor_review = review or 'Evidencia validada por el auditor'
             evidence.save()
             
-            # Recalcular riesgo residual
-            evidence.control.risk.calculate_residual_risk()
+            print(f"✅ DEBUG - Evidencia VALIDADA. Nuevo estado: {evidence.is_validated}")
+            messages.success(request, '✅ Evidencia validada exitosamente.')
             
-            messages.success(request, 'Evidencia validada exitosamente.')
         elif action == 'reject':
+            # RECHAZAR
+            if not review:
+                messages.error(request, 'Debe proporcionar una razón para el rechazo.')
+                return redirect('controls:control_detail', pk=control.pk)
+            
             evidence.is_validated = False
-            evidence.validated_by = None
-            evidence.validation_date = None
-            evidence.auditor_review = review
+            evidence.validated_by = request.user
+            evidence.validation_date = timezone.now()
+            evidence.auditor_review = f"RECHAZADA: {review}"
             evidence.save()
             
-            messages.success(request, 'Evidencia rechazada.')
+            print(f"❌ DEBUG - Evidencia RECHAZADA. Nuevo estado: {evidence.is_validated}")
+            messages.warning(request, f'❌ Evidencia rechazada: {review}')
+            
+        else:
+            messages.error(request, f'Acción no válida: {action}')
+            return redirect('controls:control_detail', pk=control.pk)
+        
+        # Recalcular riesgo residual
+        try:
+            evidence.control.risk.calculate_residual_risk()
+            print(f"🔄 DEBUG - Riesgo residual recalculado")
+        except Exception as e:
+            print(f"⚠️  DEBUG - Error calculando riesgo: {e}")
+        
+    except Exception as e:
+        print(f"💥 DEBUG - ERROR GENERAL: {e}")
+        messages.error(request, f'Error procesando validación: {str(e)}')
     
-    return redirect('controls:control_detail', pk=evidence.control.pk)
+    # Redirigir siempre al detalle del control
+    return redirect('controls:control_detail', pk=control.pk)
+
+@login_required
+def evidence_detail(request, pk):
+    """Detalle de evidencia"""
+    evidence = get_object_or_404(ControlEvidence, pk=pk)
+    control = evidence.control
+    
+    # Verificar permisos
+    can_edit = evidence.uploaded_by == request.user or request.user.is_staff
+    can_validate = request.user.is_staff and not evidence.is_validated
+    
+    # Obtener otras evidencias del mismo control para navegación
+    other_evidences = ControlEvidence.objects.filter(
+        control=control
+    ).exclude(pk=pk).order_by('-evidence_date')[:5]
+    
+    context = {
+        'evidence': evidence,
+        'control': control,
+        'can_edit': can_edit,
+        'can_validate': can_validate,
+        'other_evidences': other_evidences,
+    }
+    
+    return render(request, 'controls/evidence_detail.html', context)
 
 @login_required
 def control_request_revaluation(request, pk):

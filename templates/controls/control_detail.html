@@ -105,23 +105,11 @@
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="flex-grow-1">
                                 <i class="fas fa-comment me-2"></i>
-                                {% with feedback_lines=control.auditor_feedback|linebreaks %}
-                                    {% if feedback_lines|length > 200 %}
-                                        {{ feedback_lines|truncatechars:200 }}
-                                        <button class="btn btn-link btn-sm p-0 ms-2" data-bs-toggle="modal" data-bs-target="#commentsModal">
-                                            <small>Ver historial completo</small>
-                                        </button>
-                                    {% else %}
-                                        {{ feedback_lines }}
-                                    {% endif %}
-                                {% endwith %}
+                                {{ control.auditor_feedback|linebreaks }}
                                 {% if control.auditor %}
                                 <br><small class="text-muted">- {{ control.auditor.get_full_name|default:control.auditor.username }}</small>
                                 {% endif %}
                             </div>
-                            <button class="btn btn-outline-info btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#commentsModal">
-                                <i class="fas fa-history"></i>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -199,35 +187,38 @@
                                     <small class="text-muted">{{ evidence.uploaded_at|date:"d/m/Y" }}</small>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
-                                        {% if user.is_staff and not evidence.is_validated %}
-                                        <button class="btn btn-outline-success" onclick="validateEvidence({{ evidence.pk }}, 'validate')">
+                                    <!-- Botón Ver siempre visible -->
+                                    <a href="{% url 'controls:evidence_detail' evidence.pk %}" class="btn btn-outline-info btn-sm" title="Ver detalle de evidencia">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    
+                                    {% if user.is_staff and not evidence.is_validated %}
+                                    <!-- BOTONES SIMPLES QUE FUNCIONAN -->
+                                    <form method="post" action="{% url 'controls:evidence_validate' evidence.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="validate">
+                                        <input type="hidden" name="review" value="Evidencia validada por el auditor">
+                                        <button type="submit" class="btn btn-success btn-sm" title="Validar evidencia">
                                             <i class="fas fa-check"></i>
                                         </button>
-                                        <button class="btn btn-outline-danger" onclick="validateEvidence({{ evidence.pk }}, 'reject')">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                        {% endif %}
-                                        {% if evidence.auditor_review %}
-                                        <button class="btn btn-outline-info" onclick="showReview('{{ evidence.auditor_review|escapejs }}')">
-                                            <i class="fas fa-comment"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
+                                    </form>
+                                    
+                                    <button class="btn btn-danger btn-sm" onclick="rejectEvidence({{ evidence.pk }})" title="Rechazar evidencia">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if evidence.auditor_review %}
+                                    <button class="btn btn-outline-warning btn-sm" onclick="showReviewAlert('{{ evidence.auditor_review|escapejs }}')" title="Ver comentarios">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                
-                {% if effectiveness_chart_data %}
-                <!-- Gráfico de efectividad -->
-                <div class="mt-4">
-                    <h6>Tendencia de Efectividad</h6>
-                    <canvas id="effectivenessChart" height="100"></canvas>
-                </div>
-                {% endif %}
                 
                 {% else %}
                 <div class="text-center py-4">
@@ -344,7 +335,15 @@
                         <small class="text-muted">Total Evidencias</small>
                     </div>
                     <div class="col-6">
-                        <h5 class="text-success">{{ evidences|dictsort:"is_validated"|length }}</h5>
+                        {% with validated_count=evidences|length %}
+                        {% if validated_count > 0 %}
+                        <h5 class="text-success">
+                            {% for evidence in evidences %}{% if evidence.is_validated %}{{ forloop.counter0|add:1 }}{% endif %}{% endfor %}
+                        </h5>
+                        {% else %}
+                        <h5 class="text-success">0</h5>
+                        {% endif %}
+                        {% endwith %}
                         <small class="text-muted">Validadas</small>
                     </div>
                 </div>
@@ -397,9 +396,6 @@
                     </a>
                     {% endif %}
                     
-                    <a href="{% url 'risk_detail' control.risk.pk %}" class="btn btn-outline-info">
-                        <i class="fas fa-exclamation-triangle me-2"></i>Ver Riesgo
-                    </a>
                     <a href="{% url 'controls:control_list' %}" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left me-2"></i>Volver a Lista
                     </a>
@@ -459,113 +455,46 @@
 </div>
 {% endif %}
 
-<!-- Modal de historial de comentarios -->
-{% if control.auditor_feedback %}
-<div class="modal fade" id="commentsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+<!-- Modal para rechazo de evidencia -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title">
-                    <i class="fas fa-history me-2"></i>
-                    Historial de Comentarios - {{ control.name|truncatechars:30 }}
+                    <i class="fas fa-times-circle me-2"></i>
+                    Rechazar Evidencia
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="timeline">
-                    {% with feedback_sections=control.auditor_feedback|split:"--- " %}
-                        {% for section in feedback_sections %}
-                            {% if section|length > 5 %}
-                            <div class="timeline-item mb-4">
-                                {% if "Comentarios del usuario" in section %}
-                                    <div class="d-flex">
-                                        <div class="flex-shrink-0">
-                                            <div class="timeline-icon bg-primary">
-                                                <i class="fas fa-user text-white"></i>
-                                            </div>
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <div class="card border-primary">
-                                                <div class="card-header bg-primary text-white py-2">
-                                                    <h6 class="mb-0">
-                                                        <i class="fas fa-user me-2"></i>Comentarios del Usuario
-                                                        {% if "(" in section %}
-                                                            <small class="ms-2">{{ section|extract_date }}</small>
-                                                        {% endif %}
-                                                    </h6>
-                                                </div>
-                                                <div class="card-body">
-                                                    <p class="mb-0">{{ section|extract_user_comment|linebreaks }}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% else %}
-                                    <div class="d-flex">
-                                        <div class="flex-shrink-0">
-                                            <div class="timeline-icon bg-warning">
-                                                <i class="fas fa-gavel text-white"></i>
-                                            </div>
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <div class="card border-warning">
-                                                <div class="card-header bg-warning text-dark py-2">
-                                                    <h6 class="mb-0">
-                                                        <i class="fas fa-gavel me-2"></i>Comentarios del Auditor
-                                                        {% if control.auditor %}
-                                                            <small class="ms-2">- {{ control.auditor.get_full_name|default:control.auditor.username }}</small>
-                                                        {% endif %}
-                                                    </h6>
-                                                </div>
-                                                <div class="card-body">
-                                                    <p class="mb-0">{{ section|linebreaks }}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    {% endwith %}
+            <form id="rejectForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Debe explicar la razón del rechazo
+                    </div>
+                    <div class="mb-3">
+                        <label for="rejectReason" class="form-label">Razón del rechazo:</label>
+                        <textarea class="form-control" id="rejectReason" name="review" rows="4" 
+                                placeholder="Explique por qué rechaza esta evidencia..." required></textarea>
+                    </div>
+                    <input type="hidden" name="action" value="reject">
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times me-2"></i>Rechazar Evidencia
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-{% endif %}
+
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.timeline {
-    position: relative;
-}
-
-.timeline-item:not(:last-child)::before {
-    content: '';
-    position: absolute;
-    left: 18px;
-    top: 60px;
-    bottom: -30px;
-    width: 2px;
-    background: #dee2e6;
-}
-
-.timeline-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 2;
-}
-
 .badge-large {
     font-size: 1em;
     padding: 8px 12px;
@@ -575,94 +504,27 @@
 
 {% block extra_js %}
 <script>
-function validateEvidence(evidenceId, action) {
-    const review = prompt(action === 'validate' ? 'Comentarios de validación (opcional):' : 'Razón del rechazo:');
+// Función simple para rechazar evidencia
+function rejectEvidence(evidenceId) {
+    const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    const form = document.getElementById('rejectForm');
     
-    if (action === 'reject' && !review) {
-        alert('Debes proporcionar una razón para rechazar la evidencia');
-        return;
-    }
-    
-    // Crear form dinámico
-    const form = document.createElement('form');
-    form.method = 'POST';
+    // Configurar la acción del formulario
     form.action = `/controls/evidence/${evidenceId}/validate/`;
     
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // Limpiar el campo
+    document.getElementById('rejectReason').value = '';
     
-    const actionInput = document.createElement('input');
-    actionInput.type = 'hidden';
-    actionInput.name = 'action';
-    actionInput.value = action;
-    
-    const reviewInput = document.createElement('input');
-    reviewInput.type = 'hidden';
-    reviewInput.name = 'review';
-    reviewInput.value = review || '';
-    
-    form.appendChild(csrfInput);
-    form.appendChild(actionInput);
-    form.appendChild(reviewInput);
-    
-    document.body.appendChild(form);
-    form.submit();
+    // Mostrar el modal
+    modal.show();
 }
 
-function showReview(review) {
-    alert('Revisión del auditor:\n\n' + review);
+// Función simple para mostrar comentarios
+function showReviewAlert(review) {
+    alert('Comentarios del Auditor:\n\n' + review);
 }
 
-{% if effectiveness_chart_data %}
-// Gráfico de efectividad
-const ctx = document.getElementById('effectivenessChart').getContext('2d');
-const chartData = {{ effectiveness_chart_data|safe }};
-
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: chartData.map(item => item.date),
-        datasets: [{
-            label: 'Efectividad (%)',
-            data: chartData.map(item => item.effectiveness),
-            borderColor: '#007bff',
-            backgroundColor: 'rgba(0, 123, 255, 0.1)',
-            fill: true,
-            tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-        scales: {
-            y: {
-                beginAtZero: true,
-                max: 100,
-                ticks: {
-                    callback: function(value) {
-                        return value + '%';
-                    }
-                }
-            }
-        },
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    afterLabel: function(context) {
-                        const item = chartData[context.dataIndex];
-                        return item.description;
-                    }
-                }
-            }
-        }
-    }
-});
-{% endif %}
+// No más JavaScript complejo - solo lo básico que funciona
+console.log('✅ Control detail page loaded successfully');
 </script>
-
-<!-- Chart.js CDN -->
-{% if effectiveness_chart_data %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{% endif %}
 {% endblock %}

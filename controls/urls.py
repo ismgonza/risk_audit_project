@@ -15,6 +15,7 @@ urlpatterns = [
     
     # Evidencias
     path('<int:control_id>/evidence/create/', views.evidence_create, name='evidence_create'),
+    path('evidence/<int:pk>/', views.evidence_detail, name='evidence_detail'),
     path('evidence/<int:pk>/validate/', views.evidence_validate, name='evidence_validate'),
     
     # Dashboard de auditor

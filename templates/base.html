@@ -202,37 +202,11 @@
         });
         
         function loadSidebarStats() {
-            // Simular carga de estadísticas (en producción sería una API call)
-            fetch('/api/sidebar-stats/', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    // Si no hay API, usar valores por defecto
-                    updateBadges({
-                        risks_count: '{{ total_risks|default:"8" }}',
-                        controls_count: '{{ stats.total|default:"16" }}',
-                        pending_count: '{{ stats.pending|default:"3" }}'
-                    });
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data) {
-                    updateBadges(data);
-                }
-            })
-            .catch(error => {
-                // Valores por defecto si falla la conexión
-                updateBadges({
-                    risks_count: '{{ total_risks|default:"?" }}',
-                    controls_count: '{{ stats.total|default:"?" }}',
-                    pending_count: '{{ stats.pending|default:"?" }}'
-                });
+            // Usar valores estáticos del template en lugar de API call
+            updateBadges({
+                risks_count: '{{ total_risks|default:"?" }}',
+                controls_count: '{{ stats.total|default:"?" }}',
+                pending_count: '{{ stats.pending|default:"?" }}'
             });
         }
         
