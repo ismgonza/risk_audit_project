@@ -7,9 +7,11 @@ class RiskCategory(models.Model):
     """Categorías de riesgo con apetito de riesgo definido"""
     
     RISK_APPETITE_CHOICES = [
+        ('VERY_LOW', 'Muy Bajo'),
         ('LOW', 'Bajo'),
         ('MEDIUM', 'Medio'),
         ('HIGH', 'Alto'),
+        ('VERY_HIGH', 'Muy Alto'),
     ]
     
     name = models.CharField(max_length=100, verbose_name="Nombre de Categoría")
@@ -32,9 +34,11 @@ class Risk(models.Model):
     """Modelo principal para gestión de riesgos"""
     
     RISK_LEVEL_CHOICES = [
-        ('LOW', 'Bajo (1-5)'),
-        ('MEDIUM', 'Medio (6-10)'),
-        ('HIGH', 'Alto (11-15)'),
+        ('VERY_LOW', 'Muy Bajo'),
+        ('LOW', 'Bajo'),
+        ('MEDIUM', 'Medio'),
+        ('HIGH', 'Alto'),
+        ('VERY_HIGH', 'Muy Alto'),
     ]
     
     # Información básica del riesgo
@@ -45,9 +49,9 @@ class Risk(models.Model):
     
     # Evaluación del riesgo inherente
     probability = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(3)],
-        verbose_name="Probabilidad (1-3)",
-        help_text="1=Baja, 2=Media, 3=Alta"
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name="Probabilidad (1-5)",
+        help_text="1=Muy Bajo, 2=Bajo, 3=Medio, 4=Alto, 5=Muy Alto"
     )
     impact = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],

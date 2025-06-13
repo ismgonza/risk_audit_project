@@ -27,73 +27,62 @@ class Command(BaseCommand):
             RiskCategory.objects.all().delete()
             self.stdout.write(self.style.WARNING('Datos eliminados'))
 
-        # Crear usuario administrador si no existe
-        admin_user, created = User.objects.get_or_create(
-            username='admin',
-            defaults={
-                'email': 'admin@riskaudit.com',
-                'first_name': 'Administrador',
-                'last_name': 'Sistema',
-                'is_staff': True,
-                'is_superuser': True,
-            }
-        )
-        if created:
-            admin_user.set_password('admin123')
-            admin_user.save()
-            self.stdout.write(f'✓ Usuario admin creado (password: admin123)')
-
-        # Crear auditor
+        # Crear usuario auditor (ismgonza) si no existe
         auditor_user, created = User.objects.get_or_create(
-            username='auditor',
+            username='ismgonza',
             defaults={
-                'email': 'auditor@riskaudit.com',
-                'first_name': 'María',
-                'last_name': 'Rodríguez',
+                'email': 'ismgonza@empresa.com',
+                'first_name': 'Ismael',
+                'last_name': 'González',
                 'is_staff': True,
             }
         )
         if created:
             auditor_user.set_password('auditor123')
             auditor_user.save()
-            self.stdout.write(f'✓ Usuario auditor creado (password: auditor123)')
+            self.stdout.write(f'✓ Usuario auditor creado (username: ismgonza, password: auditor123)')
 
-        # Crear usuario regular
+        # Crear usuario regular (jperez)
         regular_user, created = User.objects.get_or_create(
-            username='usuario',
+            username='jperez',
             defaults={
-                'email': 'usuario@empresa.com',
-                'first_name': 'Carlos',
-                'last_name': 'González',
+                'email': 'jperez@empresa.com',
+                'first_name': 'Juan',
+                'last_name': 'Pérez',
             }
         )
         if created:
             regular_user.set_password('usuario123')
             regular_user.save()
-            self.stdout.write(f'✓ Usuario regular creado (password: usuario123)')
+            self.stdout.write(f'✓ Usuario regular creado (username: jperez, password: usuario123)')
 
         self.stdout.write('\n🏗️  Creando datos de prueba...\n')
 
-        # Crear categorías de riesgo
+        # Crear categorías de riesgo (mantener las existentes)
         categories_data = [
             {
-                'name': 'Operacional',
-                'description': 'Riesgos relacionados con procesos internos, sistemas y personas',
-                'risk_appetite': 'MEDIUM'
-            },
-            {
-                'name': 'Financiero',
-                'description': 'Riesgos que pueden afectar la estabilidad financiera',
+                'name': 'Continuidad operativa',
+                'description': 'Altamente sensible a fallos e interrupciones.',
                 'risk_appetite': 'LOW'
             },
             {
-                'name': 'Tecnológico',
-                'description': 'Riesgos relacionados con sistemas de información y ciberseguridad',
+                'name': 'Desarrollo ágil',
+                'description': 'Se permite flexibilidad controlada.',
                 'risk_appetite': 'MEDIUM'
             },
             {
-                'name': 'Cumplimiento',
-                'description': 'Riesgos regulatorios y de cumplimiento normativo',
+                'name': 'Seguridad de TI',
+                'description': 'Riesgos relacionados con sistemas de información y ciberseguridad. Alta confidencialidad esperada.',
+                'risk_appetite': 'LOW'
+            },
+            {
+                'name': 'TI operativo',
+                'description': 'Se toleran riesgos controlados en operaciones.',
+                'risk_appetite': 'MEDIUM'
+            },
+            {
+                'name': 'Cumplimiento legal',
+                'description': 'Riesgos regulatorios y de cumplimiento normativo. Riesgo alto de sanciones y daño reputacional.',
                 'risk_appetite': 'LOW'
             }
         ]
@@ -108,76 +97,21 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f'✓ Categoría: {category.name}')
 
-        # Crear riesgos
+        # Crear riesgos basados en los datos del Excel
         risks_data = [
-            # Riesgos Operacionales
-            {
-                'code': 'OP-001',
-                'name': 'Fallas en procesos de facturación',
-                'description': 'Errores en el proceso de facturación que pueden resultar en pérdidas económicas o insatisfacción del cliente',
-                'category': categories[0],
-                'probability': 2,
-                'impact': 4,
-            },
-            {
-                'code': 'OP-002', 
-                'name': 'Ausencia de personal clave',
-                'description': 'Riesgo de interrupción de operaciones críticas debido a la ausencia temporal o permanente de personal especializado',
-                'category': categories[0],
-                'probability': 2,
-                'impact': 3,
-            },
-            
-            # Riesgos Financieros
-            {
-                'code': 'FN-001',
-                'name': 'Fluctuaciones en tipo de cambio',
-                'description': 'Exposición a pérdidas debido a variaciones adversas en tipos de cambio de monedas extranjeras',
-                'category': categories[1],
-                'probability': 3,
-                'impact': 4,
-            },
-            {
-                'code': 'FN-002',
-                'name': 'Cartera vencida elevada',
-                'description': 'Incremento en cuentas por cobrar vencidas que afectan el flujo de efectivo',
-                'category': categories[1],
-                'probability': 2,
-                'impact': 5,
-            },
-            
-            # Riesgos Tecnológicos
             {
                 'code': 'TI-001',
-                'name': 'Ataques de ciberseguridad',
-                'description': 'Riesgo de ataques maliciosos que comprometan la integridad, confidencialidad o disponibilidad de la información',
-                'category': categories[2],
-                'probability': 3,
-                'impact': 5,
+                'name': 'Fuga de datos sensibles (clientes y código fuente)',
+                'description': 'Riesgo de exposición no autorizada de información confidencial de clientes y código fuente propietario que puede resultar en daños reputacionales, legales y competitivos',
+                'category': categories[2],  # Seguridad de TI
+                'probability': 1,
+                'impact': 4,
             },
             {
                 'code': 'TI-002',
-                'name': 'Fallas en sistemas críticos',
-                'description': 'Interrupciones no planificadas en sistemas de información que afecten operaciones críticas',
-                'category': categories[2],
-                'probability': 2,
-                'impact': 4,
-            },
-            
-            # Riesgos de Cumplimiento
-            {
-                'code': 'CP-001',
-                'name': 'Incumplimiento regulatorio fiscal',
-                'description': 'Riesgo de sanciones por incumplimiento de obligaciones fiscales o normativas',
-                'category': categories[3],
-                'probability': 1,
-                'impact': 5,
-            },
-            {
-                'code': 'CP-002',
-                'name': 'Violación de protección de datos',
-                'description': 'Incumplimiento de normativas de protección de datos personales (GDPR, etc.)',
-                'category': categories[3],
+                'name': 'Entrega de software con vulnerabilidades críticas',
+                'description': 'Riesgo de implementar y entregar software que contenga vulnerabilidades de seguridad críticas que puedan ser explotadas por atacantes',
+                'category': categories[1],  # Desarrollo ágil
                 'probability': 2,
                 'impact': 4,
             }
@@ -187,84 +121,116 @@ class Command(BaseCommand):
         for risk_data in risks_data:
             risk, created = Risk.objects.get_or_create(
                 code=risk_data['code'],
-                defaults={**risk_data, 'created_by': admin_user}
+                defaults={**risk_data, 'created_by': auditor_user}
             )
             risks.append(risk)
             if created:
                 self.stdout.write(f'✓ Riesgo: {risk.code} - {risk.name}')
 
-        # Crear controles para cada riesgo
-        controls_templates = [
-            {
-                'types': ['PREVENTIVE', 'DETECTIVE', 'CORRECTIVE'],
-                'frequencies': ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY'],
-                'names': [
-                    'Revisión diaria de {proceso}',
-                    'Control automatizado de {proceso}',
-                    'Segregación de funciones en {proceso}',
-                    'Aprobación supervisora de {proceso}',
-                    'Monitoreo continuo de {proceso}',
-                    'Backup y recuperación de {proceso}',
-                    'Capacitación en {proceso}',
-                    'Políticas y procedimientos de {proceso}'
-                ]
-            }
-        ]
+        # Crear controles específicos para cada riesgo basados en el Excel
+        controls_data = {
+            'TI-001': [  # Fuga de datos sensibles
+                {
+                    'name': 'Implementación de un sistema DLP (Data Loss Prevention)',
+                    'description': 'Sistema automatizado para prevenir la pérdida o fuga de datos sensibles mediante monitoreo y control de transferencias de información.',
+                    'control_type': 'PREVENTIVE',
+                    'frequency': 'DAILY',
+                    'responsible_person': 'Especialista en Seguridad de TI'
+                },
+                {
+                    'name': 'Implementar una solución de Gestión de Accesos Privilegiados (PAM)',
+                    'description': 'Sistema PAM para controlar, monitorear y registrar el uso de cuentas privilegiadas y accesos administrativos.',
+                    'control_type': 'PREVENTIVE',
+                    'frequency': 'DAILY',
+                    'responsible_person': 'Administrador de Sistemas'
+                },
+                {
+                    'name': 'Implementar un sistema SIEM (Security Information and Event Management)',
+                    'description': 'Sistema centralizado para recopilar, analizar y correlacionar eventos de seguridad en tiempo real.',
+                    'control_type': 'DETECTIVE',
+                    'frequency': 'DAILY',
+                    'responsible_person': 'Analista de Seguridad'
+                },
+                {
+                    'name': 'Implementar cifrado para los datos sensibles',
+                    'description': 'Cifrado de datos sensibles tanto en reposo como en tránsito para proteger la confidencialidad de la información.',
+                    'control_type': 'PREVENTIVE',
+                    'frequency': 'DAILY',
+                    'responsible_person': 'Administrador de Base de Datos'
+                },
+                {
+                    'name': 'Políticas de uso aceptable y acuerdos de confidencialidad',
+                    'description': 'Establecimiento y mantenimiento de políticas claras sobre el uso aceptable de datos y sistemas, respaldadas por acuerdos de confidencialidad.',
+                    'control_type': 'PREVENTIVE',
+                    'frequency': 'QUARTERLY',
+                    'responsible_person': 'Gerente de Recursos Humanos'
+                }
+            ],
+            'TI-002': [  # Entrega de software con vulnerabilidades críticas
+                {
+                    'name': 'Implementación de Pruebas de Seguridad Automatizadas (SAST/DAST)',
+                    'description': 'Integración de herramientas de análisis estático y dinámico de código para detectar vulnerabilidades durante el desarrollo.',
+                    'control_type': 'DETECTIVE',
+                    'frequency': 'DAILY',
+                    'responsible_person': 'Lead Developer'
+                },
+                {
+                    'name': 'Revisiones de Código Enfocadas en Seguridad',
+                    'description': 'Proceso formal de revisión de código con enfoque específico en identificación de vulnerabilidades de seguridad.',
+                    'control_type': 'DETECTIVE',
+                    'frequency': 'WEEKLY',
+                    'responsible_person': 'Senior Developer'
+                },
+                {
+                    'name': 'Capacitación en Desarrollo Seguro para Desarrolladores',
+                    'description': 'Programa de capacitación continua para desarrolladores en prácticas de codificación segura y identificación de vulnerabilidades.',
+                    'control_type': 'PREVENTIVE',
+                    'frequency': 'QUARTERLY',
+                    'responsible_person': 'Gerente de Desarrollo'
+                }
+            ]
+        }
 
         control_count = 0
         for risk in risks:
-            # Crear 2-4 controles por riesgo
-            num_controls = random.randint(2, 4)
+            risk_controls = controls_data.get(risk.code, [])
             
-            for i in range(num_controls):
-                control_name = random.choice(controls_templates[0]['names']).format(
-                    proceso=risk.name.lower()[:20]
-                )
-                
-                control_data = {
+            for control_data in risk_controls:
+                control_info = {
                     'risk': risk,
-                    'name': control_name,
-                    'description': f'Control {i+1} implementado para mitigar el riesgo {risk.code}. '
-                                 f'Este control está diseñado para reducir la probabilidad y/o impacto del riesgo identificado.',
-                    'control_type': random.choice(controls_templates[0]['types']),
-                    'frequency': random.choice(controls_templates[0]['frequencies']),
-                    'responsible_person': random.choice([
-                        'Gerente de Operaciones',
-                        'Supervisor de Área',
-                        'Analista Senior',
-                        'Coordinador de Procesos',
-                        'Jefe de Departamento'
-                    ]),
-                    'created_by': random.choice([admin_user, regular_user]),
-                    'auditor_approval': random.choice(['PENDING', 'APPROVED', 'APPROVED', 'NEEDS_REVISION']),
+                    'name': control_data['name'],
+                    'description': control_data['description'],
+                    'control_type': control_data['control_type'],
+                    'frequency': control_data['frequency'],
+                    'responsible_person': control_data['responsible_person'],
+                    'created_by': regular_user,
+                    'auditor_approval': random.choice(['APPROVED', 'APPROVED', 'PENDING']),  # 66% aprobados
                     'is_active': True
                 }
                 
                 # Si está aprobado, asignar auditor
-                if control_data['auditor_approval'] != 'PENDING':
-                    control_data['auditor'] = auditor_user
-                    if control_data['auditor_approval'] == 'NEEDS_REVISION':
-                        control_data['auditor_feedback'] = 'El control necesita mayor detalle en los procedimientos de verificación.'
+                if control_info['auditor_approval'] == 'APPROVED':
+                    control_info['auditor'] = auditor_user
 
-                control = Control.objects.create(**control_data)
+                control = Control.objects.create(**control_info)
                 control_count += 1
                 
                 # Crear evidencias para controles aprobados
                 if control.auditor_approval == 'APPROVED':
-                    evidence_count = random.randint(1, 3)
+                    evidence_count = random.randint(1, 2)
                     
                     for j in range(evidence_count):
                         evidence_date = timezone.now() - timedelta(days=random.randint(1, 30))
-                        effectiveness = random.choice([95, 77, 77, 52, 22])  # Más peso a efectivos
+                        effectiveness = random.choice([95, 85, 75, 65])  # Efectividad alta para controles reales
                         
                         evidence = ControlEvidence.objects.create(
                             control=control,
                             evidence_date=evidence_date,
-                            description=f'Evidencia {j+1} de ejecución del control. '
-                                      f'Se verificó la correcta implementación del control '
+                            description=f'Evidencia de ejecución del control {control.name}. '
+                                      f'Se verificó la correcta implementación y funcionamiento del control '
                                       f'durante el período correspondiente.',
                             effectiveness_percentage=effectiveness,
-                            uploaded_by=random.choice([admin_user, regular_user]),
+                            uploaded_by=regular_user,
                             is_validated=random.choice([True, True, False]),  # 66% validadas
                             validated_by=auditor_user if random.choice([True, False]) else None
                         )
@@ -275,7 +241,6 @@ class Command(BaseCommand):
                                 'Evidencia válida y completa.',
                                 'Evidencia aceptable, cumple con los requisitos.',
                                 'Buena evidencia, bien documentada.',
-                                ''
                             ])
                             evidence.save()
 
@@ -294,8 +259,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  • {ControlEvidence.objects.count()} evidencias')
         self.stdout.write(f'')
         self.stdout.write(f'👥 Usuarios creados:')
-        self.stdout.write(f'  • admin / admin123 (Administrador)')
-        self.stdout.write(f'  • auditor / auditor123 (Auditor)')
-        self.stdout.write(f'  • usuario / usuario123 (Usuario regular)')
+        self.stdout.write(f'  • ismgonza / auditor123 (Auditor)')
+        self.stdout.write(f'  • jperez / usuario123 (Usuario regular)')
         self.stdout.write(f'')
         self.stdout.write(self.style.SUCCESS('✅ Puedes acceder al sistema en http://127.0.0.1:8000/admin/'))

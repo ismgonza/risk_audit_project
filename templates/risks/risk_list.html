@@ -121,7 +121,7 @@
                                 {% else %}<i class="fas fa-sort"></i>{% endif %}
                             </a>
                         </th>
-                        <th># Controles</th>
+                        <th>Controles</th>
                         <th>Riesgo Residual</th>
                         <th>Acciones</th>
                     </tr>
@@ -162,7 +162,7 @@
                             {% if item.total_controls > 0 %}
                                 <span class="badge bg-info">{{ item.total_controls }}</span>
                                 {% if item.approved_controls > 0 %}
-                                <br><small class="text-success">{{ item.approved_controls }} aprobados</small>
+                                <br><small class="text-success">{{ item.approved_controls }} validados</small>
                                 {% endif %}
                             {% else %}
                                 <span class="text-muted">0</span>
